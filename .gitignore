@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# raw design source assets & internal planning docs (not needed by the built site)
+/Media/
+/docs/
