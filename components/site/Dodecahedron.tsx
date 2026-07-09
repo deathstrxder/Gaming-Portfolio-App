@@ -288,7 +288,6 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
       window.removeEventListener("scroll", updatePosition);
       window.removeEventListener("resize", updatePosition);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function onPointerDown(e: React.PointerEvent) {
