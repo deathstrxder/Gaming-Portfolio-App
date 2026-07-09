@@ -69,6 +69,7 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
   const visible = useRef(true);
   const pointerOverFace = useRef(false);
   const lastPointer = useRef<{ x: number; y: number } | null>(null);
+  const exitRef = useRef(1);
   const scrollTimer = useRef<number | undefined>(undefined);
   const switchTimer = useRef<number | undefined>(undefined);
 
@@ -98,20 +99,38 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
       el.style.opacity = String(BACK_OPACITY + (1 - BACK_OPACITY) * t);
     }
   }
-  // Fade + shrink the whole widget as it scrolls up past the viewport top — the
-  // reverse of the entrance. The wrapper's center is invariant under its own
-  // centered scale, so reading it here is stable (no feedback with the scale).
-  function computeExitFactor(): number {
+  // Recompute the scroll-position factors (exit fade + cursor-off-shape) on
+  // scroll/resize — NOT every rAF frame — so getBoundingClientRect never runs
+  // during the hover "open" transition and forces a layout that stutters. The
+  // wrapper center is invariant under its centered scale, so this is stable.
+  function updatePosition() {
     const el = wrapperRef.current;
-    if (!el) return 1;
+    if (!el) return;
     const rect = el.getBoundingClientRect();
     const vh = window.innerHeight || 1;
     const center = (rect.top + rect.height / 2) / vh; // 0 at top, 1 at bottom
-    // Fade + spin away near BOTH edges: over the top 40% as it scrolls up out,
-    // and over the bottom 40% as it scrolls down out (mirror of the top).
     const top = center / 0.4;
     const bottom = (1 - center) / 0.4;
-    return Math.max(0, Math.min(1, top, bottom));
+    exitRef.current = Math.max(0, Math.min(1, top, bottom));
+
+    // The cursor scrolled out from under a locked icon (pointerleave does not
+    // fire on scroll) — release the hover so the shape spins away normally.
+    if (mode.current === "focused" && lastPointer.current) {
+      const stage = stageRef.current;
+      if (!stage) return;
+      const r = stage.getBoundingClientRect();
+      const p = lastPointer.current;
+      if (p.x < r.left || p.x > r.right || p.y < r.top || p.y > r.bottom) {
+        if (switchTimer.current !== undefined) {
+          window.clearTimeout(switchTimer.current);
+          switchTimer.current = undefined;
+        }
+        pointerOverFace.current = false;
+        focusIndex.current = null;
+        setFocusedFace(null);
+        mode.current = "idle";
+      }
+    }
   }
 
   // Trigger entrance the first time the widget is on screen; pause loop off-screen.
@@ -171,28 +190,7 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
       if (!visible.current) return;
 
       const since = now - enteredAt.current;
-      const exit = computeExitFactor();
-
-      // If we're locked onto an icon but the cursor is no longer over the shape
-      // (e.g. it scrolled out from under a stationary cursor — pointerleave does
-      // not fire on scroll), stop hovering so the shape spins away normally.
-      if (mode.current === "focused" && lastPointer.current) {
-        const stage = stageRef.current;
-        if (stage) {
-          const r = stage.getBoundingClientRect();
-          const p = lastPointer.current;
-          if (p.x < r.left || p.x > r.right || p.y < r.top || p.y > r.bottom) {
-            if (switchTimer.current !== undefined) {
-              window.clearTimeout(switchTimer.current);
-              switchTimer.current = undefined;
-            }
-            pointerOverFace.current = false;
-            focusIndex.current = null;
-            setFocusedFace(null);
-            mode.current = "idle";
-          }
-        }
-      }
+      const exit = exitRef.current;
 
       if (mode.current === "focused" && focusIndex.current !== null) {
         const k = 1 - Math.exp(-dt / FOCUS_TAU);
@@ -280,6 +278,18 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
     },
     [],
   );
+
+  // Keep the scroll-position factors current via scroll/resize (not the loop).
+  useEffect(() => {
+    updatePosition();
+    window.addEventListener("scroll", updatePosition, { passive: true });
+    window.addEventListener("resize", updatePosition);
+    return () => {
+      window.removeEventListener("scroll", updatePosition);
+      window.removeEventListener("resize", updatePosition);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function onPointerDown(e: React.PointerEvent) {
     (e.target as Element).setPointerCapture?.(e.pointerId);
