@@ -19,6 +19,7 @@ export function DodecahedronFace({
   transform,
   sizePx,
   focused,
+  pressed = false,
   popPx = 0,
   innerRef,
   onEnter,
@@ -29,6 +30,7 @@ export function DodecahedronFace({
   transform: string;
   sizePx: number;
   focused: boolean;
+  pressed?: boolean;
   popPx?: number;
   innerRef?: React.Ref<HTMLDivElement>;
   onEnter: () => void;
@@ -47,7 +49,7 @@ export function DodecahedronFace({
         // translateZ(0) baseline keeps both transform lists the same shape so
         // the pop transitions smoothly. No backface-visibility: back faces stay
         // rendered (faded via per-face opacity) so the interior is visible.
-        transform: `${transform} translateZ(${focused ? popPx : 0}px)`,
+        transform: `${transform} translateZ(${focused && !pressed ? popPx : 0}px)`,
         transition: "transform 300ms ease",
       }}
     >

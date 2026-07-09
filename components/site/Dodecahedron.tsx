@@ -49,6 +49,7 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
   const boxPx = faceBoxPx(FACE_RADIUS_PX);
 
   const [focusedFace, setFocusedFace] = useState<number | null>(null);
+  const [isPressed, setIsPressed] = useState(false);
   const [entered, setEntered] = useState(false);
 
   // Loop state lives in refs so the rAF loop never triggers React re-renders.
@@ -223,6 +224,7 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
     (e.target as Element).setPointerCapture?.(e.pointerId);
     drag.current = { x: e.clientX, y: e.clientY, vx: 0, vy: 0, moved: 0, active: true };
     inertia.current = [0, 0];
+    setIsPressed(true); // pressing/holding a hovered icon pops it back in
     mode.current = "dragging";
   }
 
@@ -243,6 +245,7 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
   }
 
   function onPointerUp() {
+    setIsPressed(false);
     if (!drag.current.active) return;
     drag.current.active = false;
     inertia.current = [drag.current.vx * 0.6, drag.current.vy * 0.6];
@@ -330,6 +333,7 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
               sizePx={boxPx}
               popPx={POP_PX}
               focused={focusedFace === f.faceIndex}
+              pressed={isPressed && focusedFace === f.faceIndex}
               onEnter={() => onFaceEnter(f.faceIndex)}
               onClickFace={(e) => onFaceClick(e, f.faceIndex, f.game.id)}
             />
