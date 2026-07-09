@@ -19,6 +19,8 @@ export function DodecahedronFace({
   transform,
   sizePx,
   focused,
+  popPx = 0,
+  innerRef,
   onEnter,
   onClickFace,
 }: {
@@ -27,19 +29,26 @@ export function DodecahedronFace({
   transform: string;
   sizePx: number;
   focused: boolean;
+  popPx?: number;
+  innerRef?: React.Ref<HTMLDivElement>;
   onEnter: () => void;
   onClickFace: (e: React.MouseEvent) => void;
 }) {
   return (
     <div
+      ref={innerRef}
       className="absolute left-1/2 top-1/2"
       style={{
         width: sizePx,
         height: sizePx,
         marginLeft: -sizePx / 2,
         marginTop: -sizePx / 2,
-        transform,
-        backfaceVisibility: "hidden",
+        // Pop the hovered face outward along its normal (local +Z). The
+        // translateZ(0) baseline keeps both transform lists the same shape so
+        // the pop transitions smoothly. No backface-visibility: back faces stay
+        // rendered (faded via per-face opacity) so the interior is visible.
+        transform: `${transform} translateZ(${focused ? popPx : 0}px)`,
+        transition: "transform 300ms ease",
       }}
     >
       <a

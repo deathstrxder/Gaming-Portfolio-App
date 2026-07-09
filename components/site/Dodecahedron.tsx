@@ -5,6 +5,7 @@ import { useReducedMotion } from "motion/react";
 
 import type { FaceAssignment } from "@/lib/dodecahedron";
 import {
+  FACE_NORMALS,
   faceTransforms,
   faceBoxPx,
   orientationBringingFaceToFront,
@@ -14,6 +15,8 @@ import {
   qIdentity,
   qFromAxisAngle,
   qMul,
+  qRotateVec,
+  qShortestArc,
   qSlerp,
   qToMatrix3d,
 } from "@/lib/quat";
@@ -28,6 +31,10 @@ const IDLE_AXIS = [0.35, 1, 0.15] as const;
 const FOCUS_TAU = 90; // ms; smaller = snappier settle to front
 const DRAG_SENS = 0.007; // rad per px
 const DRAG_THRESHOLD_PX = 6;
+const EXPLODE = 1.12; // push faces out along their normals to open gaps
+const POP_PX = 30; // extra outward offset for the hovered (focused) face
+const FOCUS_SPIN = 0.0005; // rad/ms — spin rate while "locked on" a hovered icon
+const BACK_OPACITY = 0.26; // faded interior faces seen through the gaps
 
 type Mode = "idle" | "dragging" | "focused";
 
@@ -37,7 +44,7 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
   const stageRef = useRef<HTMLDivElement>(null);
   const solidRef = useRef<HTMLDivElement>(null);
 
-  const transforms = faceTransforms(FACE_RADIUS_PX);
+  const transforms = faceTransforms(FACE_RADIUS_PX, EXPLODE);
   const boxPx = faceBoxPx(FACE_RADIUS_PX);
 
   const [focusedFace, setFocusedFace] = useState<number | null>(null);
@@ -46,7 +53,8 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
   // Loop state lives in refs so the rAF loop never triggers React re-renders.
   const orientation = useRef<Quat>(qIdentity);
   const mode = useRef<Mode>("idle");
-  const focusTarget = useRef<Quat>(qIdentity);
+  const focusIndex = useRef<number | null>(null);
+  const faceEls = useRef<(HTMLDivElement | null)[]>([]);
   const drag = useRef({ x: 0, y: 0, vx: 0, vy: 0, moved: 0, active: false });
   const inertia = useRef<[number, number]>([0, 0]);
   const enteredAt = useRef<number | null>(null);
@@ -67,6 +75,18 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
     if (!el) return;
     el.style.transform = `scale(${scale})`;
     el.style.opacity = String(opacity);
+  }
+  // Fade faces that turn away so their icons read as faded ghosts inside the
+  // shape, seen through the gaps between the exploded faces.
+  function updateFaceOpacity() {
+    const els = faceEls.current;
+    for (let i = 0; i < els.length; i++) {
+      const el = els[i];
+      if (!el) continue;
+      const facing = qRotateVec(orientation.current, FACE_NORMALS[i])[2];
+      const t = Math.max(0, Math.min(1, (facing + 0.35) / 0.7));
+      el.style.opacity = String(BACK_OPACITY + (1 - BACK_OPACITY) * t);
+    }
   }
 
   // Trigger entrance the first time the widget is on screen; pause loop off-screen.
@@ -95,6 +115,7 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
     );
     renderRotation();
     renderEntrance(1, 1);
+    updateFaceOpacity();
   }, [reduced]);
 
   // Hold the solid at the entrance start (small, invisible) until it scrolls
@@ -124,9 +145,21 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
 
       const since = now - enteredAt.current;
 
-      if (mode.current === "focused") {
+      if (mode.current === "focused" && focusIndex.current !== null) {
+        // Spin around the axis running through the hovered icon into the screen
+        // (world +Z), and continuously ease that face's normal toward the viewer
+        // so we stay "locked on" the icon while the shape keeps spinning.
+        orientation.current = qMul(
+          qFromAxisAngle([0, 0, 1], FOCUS_SPIN * dt),
+          orientation.current,
+        );
+        const nScreen = qRotateVec(
+          orientation.current,
+          FACE_NORMALS[focusIndex.current],
+        );
+        const correction = qShortestArc(nScreen, [0, 0, 1]);
         const k = 1 - Math.exp(-dt / FOCUS_TAU);
-        orientation.current = qSlerp(orientation.current, focusTarget.current, k);
+        orientation.current = qMul(qSlerp(qIdentity, correction, k), orientation.current);
       } else if (mode.current !== "dragging") {
         // idle tumble, faster during the entrance window
         let speed = IDLE_SPEED;
@@ -159,6 +192,7 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
       }
       renderRotation();
       renderEntrance(scale, opacity);
+      updateFaceOpacity();
     };
 
     raf = requestAnimationFrame(tick);
@@ -199,20 +233,21 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
     if (!drag.current.active) return;
     drag.current.active = false;
     inertia.current = [drag.current.vx * 0.6, drag.current.vy * 0.6];
-    mode.current = focusedFace != null ? "focused" : "idle";
+    mode.current = focusIndex.current != null ? "focused" : "idle";
   }
 
   function onFaceEnter(index: number) {
     if (drag.current.active) return;
     pointerOverFace.current = true;
+    focusIndex.current = index;
     setFocusedFace(index);
-    focusTarget.current = orientationBringingFaceToFront(index);
     mode.current = "focused";
   }
 
   function onStageLeave() {
     pointerOverFace.current = false;
     if (drag.current.active) return;
+    focusIndex.current = null;
     setFocusedFace(null);
     mode.current = "idle";
   }
@@ -220,7 +255,7 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
   function onFaceClick(e: React.MouseEvent, index: number, gameId: string) {
     e.preventDefault();
     if (drag.current.moved > DRAG_THRESHOLD_PX) return; // it was a drag
-    focusTarget.current = orientationBringingFaceToFront(index);
+    focusIndex.current = index;
     mode.current = "focused";
     setFocusedFace(index);
     const target = document.getElementById(`game-${gameId}`);
@@ -229,8 +264,9 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
       history.replaceState(null, "", `#game-${gameId}`);
       // Touch/keyboard activation has no lingering hover to hold the face, so
       // resume the idle tumble once the scroll starts. A mouse still hovering
-      // keeps pointerOverFace true and the face stays held until it leaves.
+      // keeps pointerOverFace true and the face stays locked until it leaves.
       if (!pointerOverFace.current) {
+        focusIndex.current = null;
         mode.current = "idle";
         setFocusedFace(null);
       }
@@ -243,7 +279,7 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
     <div
       ref={wrapperRef}
       className="mx-auto"
-      style={{ width: "100%", maxWidth: 360, willChange: "transform, opacity" }}
+      style={{ width: "100%", maxWidth: 420, willChange: "transform, opacity" }}
     >
       <div
         ref={stageRef}
@@ -268,10 +304,14 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
           {faces.map((f) => (
             <DodecahedronFace
               key={f.faceIndex}
+              innerRef={(el) => {
+                faceEls.current[f.faceIndex] = el;
+              }}
               game={f.game}
               iconSrc={f.iconSrc}
               transform={transforms[f.faceIndex]}
               sizePx={boxPx}
+              popPx={POP_PX}
               focused={focusedFace === f.faceIndex}
               onEnter={() => onFaceEnter(f.faceIndex)}
               onClickFace={(e) => onFaceClick(e, f.faceIndex, f.game.id)}

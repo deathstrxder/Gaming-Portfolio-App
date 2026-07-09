@@ -98,8 +98,11 @@ export function faceBoxPx(faceRadiusPx: number): number {
 }
 
 /** Twelve CSS `matrix3d(...)` transforms placing each face on the solid. */
-export function faceTransforms(faceRadiusPx: number): string[] {
-  const inradiusPx = (faceRadiusPx * INRADIUS_UNIT) / FACE_CIRCUMRADIUS_UNIT;
+export function faceTransforms(faceRadiusPx: number, explode = 1): string[] {
+  // `explode` > 1 pushes each face outward along its normal, opening gaps
+  // between the faces so the interior is partially visible at all times.
+  const inradiusPx =
+    (faceRadiusPx * INRADIUS_UNIT * explode) / FACE_CIRCUMRADIUS_UNIT;
   return FACE_NORMALS.map((z, i) => {
     // Point the pentagon "up" in the face's local frame: the tangent (direction
     // to the first vertex) maps to local up (-Y), so an upright, object-cover
