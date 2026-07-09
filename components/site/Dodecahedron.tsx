@@ -19,7 +19,7 @@ import {
 } from "@/lib/quat";
 import { DodecahedronFace } from "@/components/site/DodecahedronFace";
 
-const FACE_RADIUS_PX = 66; // pentagon circumradius
+const FACE_RADIUS_PX = 92.4; // pentagon circumradius (66 × 1.4)
 const PERSPECTIVE_PX = 900;
 const IDLE_SPEED = 0.00035; // rad/ms (~1 turn / 18s)
 const ENTRANCE_SPEED = 0.004; // faster tumble while it materializes

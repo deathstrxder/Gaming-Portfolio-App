@@ -101,8 +101,13 @@ export function faceBoxPx(faceRadiusPx: number): number {
 export function faceTransforms(faceRadiusPx: number): string[] {
   const inradiusPx = (faceRadiusPx * INRADIUS_UNIT) / FACE_CIRCUMRADIUS_UNIT;
   return FACE_NORMALS.map((z, i) => {
-    const x = faceTangent(i);
-    const y = vCross(z, x); // right-handed (x, y, z=normal) => front faces outward
+    // Point the pentagon "up" in the face's local frame: the tangent (direction
+    // to the first vertex) maps to local up (-Y), so an upright, object-cover
+    // icon is left/right symmetric within the vertex-up pentagon. Still tiles —
+    // the vertex lands on the same real dodecahedron vertex.
+    const tangent = faceTangent(i);
+    const y = vScale(tangent, -1); // local +Y (down) -> -tangent; local up -> tangent
+    const x = vCross(y, z); // right-handed basis (x × y = z); front faces outward (+z)
     const t = vScale(z, inradiusPx);
     const m = [
       x[0], x[1], x[2], 0,
