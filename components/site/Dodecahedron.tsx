@@ -103,8 +103,12 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
     if (!el) return 1;
     const rect = el.getBoundingClientRect();
     const vh = window.innerHeight || 1;
-    const center = (rect.top + rect.height / 2) / vh; // 1 at bottom, 0 at top
-    return Math.max(0, Math.min(1, center / 0.4)); // fades out over the top 40%
+    const center = (rect.top + rect.height / 2) / vh; // 0 at top, 1 at bottom
+    // Fade + spin away near BOTH edges: over the top 40% as it scrolls up out,
+    // and over the bottom 40% as it scrolls down out (mirror of the top).
+    const top = center / 0.4;
+    const bottom = (1 - center) / 0.4;
+    return Math.max(0, Math.min(1, top, bottom));
   }
 
   // Trigger entrance the first time the widget is on screen; pause loop off-screen.
