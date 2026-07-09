@@ -255,6 +255,10 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
   function onFaceEnter(index: number) {
     if (drag.current.active) return;
     pointerOverFace.current = true;
+    // Returning to the same face we're already locked onto (e.g. the pointer
+    // slipped into a gap and came back without visiting another face) — keep
+    // spinning as it was, don't recenter. Only (re)align for a different face.
+    if (focusIndex.current === index && mode.current === "focused") return;
     focusIndex.current = index;
     focusTarget.current = orientationUprightFacingViewer(index);
     aligning.current = true; // stand the icon upright first, then spin
