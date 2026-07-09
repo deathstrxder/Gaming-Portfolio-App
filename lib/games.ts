@@ -9,6 +9,8 @@ export type Game = {
   logoInvert?: boolean;
   /** CSS object-position for the splash background (defaults to center). */
   splashPosition?: string;
+  /** Alternate icon for games that appear on two dodecahedron faces. */
+  iconAlt?: string;
 };
 
 export const GAMES: Record<string, Game> = {
@@ -18,6 +20,7 @@ export const GAMES: Record<string, Game> = {
     logo: "/gaming/logos/clash-of-clans.png",
     splash: "/gaming/splash/clash-of-clans.jpg",
     icon: "/gaming/icons/clash-of-clans.png",
+    iconAlt: "/gaming/icons/clash-of-clans-2.webp",
     splashPosition: "25% center",
     bullets: [
       "The first video game I have ever played",
@@ -31,6 +34,7 @@ export const GAMES: Record<string, Game> = {
     logo: "/gaming/logos/clash-royale.png",
     splash: "/gaming/splash/clash-royale.jpg",
     icon: "/gaming/icons/clash-royale.webp",
+    iconAlt: "/gaming/icons/clash-royale-2.webp",
     bullets: [
       "Played on release but quickly quit for 3 years",
       "First account is missing",
@@ -43,6 +47,7 @@ export const GAMES: Record<string, Game> = {
     logo: "/gaming/logos/brawl-stars.png",
     splash: "/gaming/splash/brawl-stars.png",
     icon: "/gaming/icons/brawl-stars.png",
+    iconAlt: "/gaming/icons/brawl-stars-2.webp",
     splashPosition: "35% center",
     bullets: [
       "Masters after the first ranked update",
@@ -80,6 +85,7 @@ export const GAMES: Record<string, Game> = {
     logo: "/gaming/logos/minecraft.png",
     splash: "/gaming/splash/minecraft.jpg",
     icon: "/gaming/icons/minecraft.svg",
+    iconAlt: "/gaming/icons/minecraft-2.svg",
     bullets: [
       "Grandmaster in Hypixel Bridge",
       "World Record Holder of the 50 winstreak speedrun in Bridge",
@@ -92,6 +98,7 @@ export const GAMES: Record<string, Game> = {
     logo: "/gaming/logos/fortnite.png",
     splash: "/gaming/splash/fortnite.jpg",
     icon: "/gaming/icons/fortnite.svg",
+    iconAlt: "/gaming/icons/fortnite-2.webp",
     logoInvert: true,
     bullets: [
       "Box Fight Demon",
