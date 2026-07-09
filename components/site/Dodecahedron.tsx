@@ -37,7 +37,7 @@ const POP_PX = 30; // extra outward offset for the hovered (focused) face
 const FOCUS_SPIN = 0.0005; // rad/ms — spin rate while "locked on" a hovered icon
 const BACK_OPACITY = 0.26; // faded interior faces seen through the gaps
 const HOVER_EXPLODE_PX = 22; // extra outward push for all faces while hovering
-const SWITCH_DELAY_MS = 500; // debounce before locking onto a different icon
+const SWITCH_DELAY_MS = 200; // debounce before locking onto a different icon
 
 type Mode = "idle" | "dragging" | "focused";
 
