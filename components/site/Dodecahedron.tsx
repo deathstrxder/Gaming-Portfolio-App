@@ -202,7 +202,10 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
           const p = since / ENTRANCE_MS;
           speed = ENTRANCE_SPEED + (IDLE_SPEED - ENTRANCE_SPEED) * p;
         }
-        speed *= 1 + (1 - exit) * 3; // spin up as it fades away on scroll-out
+        // Spin up hard AND early (sqrt ramps fast) as it scrolls away, so the
+        // fast whirl is visible before the fade/shrink finishes — reads as
+        // spinning away into the screen rather than just shrinking.
+        speed *= 1 + Math.sqrt(1 - exit) * 10;
         orientation.current = qMul(qFromAxisAngle([...IDLE_AXIS], speed * dt), orientation.current);
 
         // decaying inertia handed off from a fling
