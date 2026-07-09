@@ -33,6 +33,7 @@ type Mode = "idle" | "dragging" | "focused";
 
 export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
   const reduced = useReducedMotion();
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const solidRef = useRef<HTMLDivElement>(null);
 
@@ -53,10 +54,18 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
   const pointerOverFace = useRef(false);
   const scrollTimer = useRef<number | undefined>(undefined);
 
-  function render(scale = 1, opacity = 1) {
+  // The 3D orientation goes on the preserve-3d solid; the entrance scale/opacity
+  // go on the outer wrapper. Applying opacity (or overflow/filter/scale-less-than-
+  // needed grouping) to a preserve-3d element makes the browser FLATTEN it —
+  // collapsing all 12 faces into a single plane — so those must never touch it.
+  function renderRotation() {
     const el = solidRef.current;
+    if (el) el.style.transform = qToMatrix3d(orientation.current);
+  }
+  function renderEntrance(scale = 1, opacity = 1) {
+    const el = wrapperRef.current;
     if (!el) return;
-    el.style.transform = `scale(${scale}) ${qToMatrix3d(orientation.current)}`;
+    el.style.transform = `scale(${scale})`;
     el.style.opacity = String(opacity);
   }
 
@@ -84,7 +93,8 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
       qFromAxisAngle([1, 0, 0], -0.35),
       orientationBringingFaceToFront(0),
     );
-    render(1, 1);
+    renderRotation();
+    renderEntrance(1, 1);
   }, [reduced]);
 
   // Hold the solid at the entrance start (small, invisible) until it scrolls
@@ -92,7 +102,8 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
   // the client after mount; the server/no-JS render stays full-size and visible.
   useEffect(() => {
     if (reduced || entered) return;
-    render(0.2, 0);
+    renderRotation();
+    renderEntrance(0.2, 0);
   }, [reduced, entered]);
 
   // The animation loop.
@@ -146,7 +157,8 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
         scale = 0.2 + 0.8 * eased;
         opacity = eased;
       }
-      render(scale, opacity);
+      renderRotation();
+      renderEntrance(scale, opacity);
     };
 
     raf = requestAnimationFrame(tick);
@@ -180,7 +192,7 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
     );
     drag.current.vx = dx * DRAG_SENS;
     drag.current.vy = dy * DRAG_SENS;
-    render(1, 1);
+    renderRotation();
   }
 
   function onPointerUp() {
@@ -229,37 +241,43 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
 
   return (
     <div
-      ref={stageRef}
-      className="mx-auto grid touch-none select-none place-items-center"
-      style={{ width: "100%", maxWidth: 360, aspectRatio: "1 / 1", perspective: PERSPECTIVE_PX }}
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
-      onPointerCancel={onPointerUp}
-      onPointerLeave={onStageLeave}
+      ref={wrapperRef}
+      className="mx-auto"
+      style={{ width: "100%", maxWidth: 360, willChange: "transform, opacity" }}
     >
       <div
-        ref={solidRef}
-        className="relative"
-        style={{
-          width: boxPx,
-          height: boxPx,
-          transformStyle: "preserve-3d",
-          willChange: "transform, opacity",
-        }}
+        ref={stageRef}
+        className="grid touch-none select-none place-items-center"
+        style={{ width: "100%", aspectRatio: "1 / 1", perspective: PERSPECTIVE_PX }}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+        onPointerLeave={onStageLeave}
       >
-        {faces.map((f) => (
-          <DodecahedronFace
-            key={f.faceIndex}
-            game={f.game}
-            iconSrc={f.iconSrc}
-            transform={transforms[f.faceIndex]}
-            sizePx={boxPx}
-            focused={focusedFace === f.faceIndex}
-            onEnter={() => onFaceEnter(f.faceIndex)}
-            onClickFace={(e) => onFaceClick(e, f.faceIndex, f.game.id)}
-          />
-        ))}
+        <div
+          ref={solidRef}
+          className="relative"
+          style={{
+            width: boxPx,
+            height: boxPx,
+            transformStyle: "preserve-3d",
+            willChange: "transform",
+          }}
+        >
+          {faces.map((f) => (
+            <DodecahedronFace
+              key={f.faceIndex}
+              game={f.game}
+              iconSrc={f.iconSrc}
+              transform={transforms[f.faceIndex]}
+              sizePx={boxPx}
+              focused={focusedFace === f.faceIndex}
+              onEnter={() => onFaceEnter(f.faceIndex)}
+              onClickFace={(e) => onFaceClick(e, f.faceIndex, f.game.id)}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );

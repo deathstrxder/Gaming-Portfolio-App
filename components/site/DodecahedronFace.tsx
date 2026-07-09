@@ -45,14 +45,13 @@ export function DodecahedronFace({
         onPointerEnter={onEnter}
         onClick={onClickFace}
         className={cn(
-          "flex h-full w-full items-center justify-center border bg-bg-elev/70 backdrop-blur-sm transition-shadow duration-300",
-          focused ? "border-neon-blue/70 box-glow-blue" : "border-neon-blue/25",
+          "relative block h-full w-full bg-bg-elev/60 transition-[filter] duration-300",
+          focused ? "brightness-125" : "brightness-100",
         )}
         style={{ clipPath: PENTAGON_CLIP }}
       >
-        <span className="relative block h-1/2 w-1/2">
-          <Image src={iconSrc} alt={game.name} fill sizes="120px" className="object-contain" />
-        </span>
+        {/* Icon fills the whole face and is cropped to the pentagon by clipPath. */}
+        <Image src={iconSrc} alt={game.name} fill sizes="150px" className="object-cover" />
       </a>
     </div>
   );
