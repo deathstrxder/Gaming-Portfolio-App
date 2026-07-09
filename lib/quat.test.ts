@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 
 import {
   type Vec3,
+  type Quat,
   qIdentity,
   qMul,
   qFromAxisAngle,
@@ -51,5 +52,14 @@ describe("quat", () => {
     expect(qToMatrix3d(qIdentity)).toBe(
       "matrix3d(1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1)",
     );
+  });
+
+  it("slerp handles a negative dot product (double-cover) and stays unit-length", () => {
+    const a = qFromAxisAngle([0, 1, 0], 0.2);
+    const negB: Quat = [-a[0], -a[1], -a[2], -a[3]]; // same rotation as a, opposite sign -> dot < 0
+    const m = qSlerp(a, negB, 0.5);
+    // -a is the SAME rotation as a, so interpolating between them stays at that rotation
+    expect(vClose(qRotateVec(m, [1, 0, 0]), qRotateVec(a, [1, 0, 0]))).toBe(true);
+    expect(close(Math.hypot(m[0], m[1], m[2], m[3]), 1)).toBe(true);
   });
 });

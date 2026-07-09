@@ -51,6 +51,7 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
   const enteredAt = useRef<number | null>(null);
   const visible = useRef(true);
   const pointerOverFace = useRef(false);
+  const scrollTimer = useRef<number | undefined>(undefined);
 
   function render(scale = 1, opacity = 1) {
     const el = solidRef.current;
@@ -85,6 +86,14 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
     );
     render(1, 1);
   }, [reduced]);
+
+  // Hold the solid at the entrance start (small, invisible) until it scrolls
+  // into view, so it never flashes full-size before animating in. Runs only on
+  // the client after mount; the server/no-JS render stays full-size and visible.
+  useEffect(() => {
+    if (reduced || entered) return;
+    render(0.2, 0);
+  }, [reduced, entered]);
 
   // The animation loop.
   useEffect(() => {
@@ -144,6 +153,13 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
     return () => cancelAnimationFrame(raf);
   }, [reduced, entered]);
 
+  useEffect(
+    () => () => {
+      if (scrollTimer.current !== undefined) window.clearTimeout(scrollTimer.current);
+    },
+    [],
+  );
+
   function onPointerDown(e: React.PointerEvent) {
     (e.target as Element).setPointerCapture?.(e.pointerId);
     drag.current = { x: e.clientX, y: e.clientY, vx: 0, vy: 0, moved: 0, active: true };
@@ -198,6 +214,7 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
     const target = document.getElementById(`game-${gameId}`);
     const go = () => {
       target?.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
+      history.replaceState(null, "", `#game-${gameId}`);
       // Touch/keyboard activation has no lingering hover to hold the face, so
       // resume the idle tumble once the scroll starts. A mouse still hovering
       // keeps pointerOverFace true and the face stays held until it leaves.
@@ -207,7 +224,7 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
       }
     };
     if (reduced) go();
-    else window.setTimeout(go, 420);
+    else scrollTimer.current = window.setTimeout(go, 420);
   }
 
   return (

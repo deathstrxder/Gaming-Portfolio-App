@@ -108,17 +108,6 @@ export const GAMES: Record<string, Game> = {
   },
 };
 
-/** Icon grid for "Most Played Games" (Section 1) — all seven games. */
-export const ALL_GAMES: Game[] = [
-  GAMES["clash-of-clans"],
-  GAMES["clash-royale"],
-  GAMES["brawl-stars"],
-  GAMES["league-of-legends"],
-  GAMES.valorant,
-  GAMES.minecraft,
-  GAMES.fortnite,
-];
-
 /** The three game-showcase sections (2, 3, 4), each a row of game cards. */
 export const SECTION_GROUPS: { id: string; games: Game[] }[] = [
   {
