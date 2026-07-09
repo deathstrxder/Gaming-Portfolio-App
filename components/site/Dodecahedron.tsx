@@ -66,6 +66,7 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
   const enteredAt = useRef<number | null>(null);
   const visible = useRef(true);
   const pointerOverFace = useRef(false);
+  const lastPointer = useRef<{ x: number; y: number } | null>(null);
   const scrollTimer = useRef<number | undefined>(undefined);
   const switchTimer = useRef<number | undefined>(undefined);
 
@@ -170,6 +171,27 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
       const since = now - enteredAt.current;
       const exit = computeExitFactor();
 
+      // If we're locked onto an icon but the cursor is no longer over the shape
+      // (e.g. it scrolled out from under a stationary cursor — pointerleave does
+      // not fire on scroll), stop hovering so the shape spins away normally.
+      if (mode.current === "focused" && lastPointer.current) {
+        const stage = stageRef.current;
+        if (stage) {
+          const r = stage.getBoundingClientRect();
+          const p = lastPointer.current;
+          if (p.x < r.left || p.x > r.right || p.y < r.top || p.y > r.bottom) {
+            if (switchTimer.current !== undefined) {
+              window.clearTimeout(switchTimer.current);
+              switchTimer.current = undefined;
+            }
+            pointerOverFace.current = false;
+            focusIndex.current = null;
+            setFocusedFace(null);
+            mode.current = "idle";
+          }
+        }
+      }
+
       if (mode.current === "focused" && focusIndex.current !== null) {
         const k = 1 - Math.exp(-dt / FOCUS_TAU);
         if (aligning.current) {
@@ -248,6 +270,7 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
 
   function onPointerDown(e: React.PointerEvent) {
     (e.target as Element).setPointerCapture?.(e.pointerId);
+    lastPointer.current = { x: e.clientX, y: e.clientY };
     drag.current = { x: e.clientX, y: e.clientY, vx: 0, vy: 0, moved: 0, active: true };
     inertia.current = [0, 0];
     clearSwitchTimer();
@@ -256,6 +279,7 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
   }
 
   function onPointerMove(e: React.PointerEvent) {
+    lastPointer.current = { x: e.clientX, y: e.clientY };
     if (!drag.current.active) return;
     const dx = e.clientX - drag.current.x;
     const dy = e.clientY - drag.current.y;
