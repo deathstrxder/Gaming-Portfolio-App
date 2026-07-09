@@ -35,6 +35,7 @@ const DRAG_THRESHOLD_PX = 6;
 const EXPLODE = 1.144; // push faces out along their normals to open gaps
 const POP_PX = 30; // extra outward offset for the hovered (focused) face
 const FOCUS_SPIN = 0.00035; // rad/ms — spin rate while "locked on" a hovered icon
+const FOCUS_RAMP_MS = 500; // ease the lock-on spin down to FOCUS_SPIN after centering
 const BACK_OPACITY = 0.26; // faded interior faces seen through the gaps
 const HOVER_EXPLODE_PX = 22; // extra outward push for all faces while hovering
 const SWITCH_DELAY_MS = 200; // debounce before locking onto a different icon
@@ -60,6 +61,7 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
   const focusIndex = useRef<number | null>(null);
   const focusTarget = useRef<Quat>(qIdentity);
   const aligning = useRef(false);
+  const alignedAt = useRef<number | null>(null);
   const faceEls = useRef<(HTMLDivElement | null)[]>([]);
   const drag = useRef({ x: 0, y: 0, vx: 0, vy: 0, moved: 0, active: false });
   const inertia = useRef<[number, number]>([0, 0]);
@@ -201,13 +203,24 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
           const q = orientation.current;
           const tgt = focusTarget.current;
           const d = q[0] * tgt[0] + q[1] * tgt[1] + q[2] * tgt[2] + q[3] * tgt[3];
-          if (Math.abs(d) > 0.9998) aligning.current = false;
+          if (Math.abs(d) > 0.9998) {
+            aligning.current = false;
+            alignedAt.current = now; // begin easing the spin down to FOCUS_SPIN
+          }
         } else {
           // Phase 2: spin around the axis through the hovered icon into the
           // screen (world +Z), easing that face's normal to the viewer so we
           // stay "locked on" while the shape keeps spinning.
+          // Ease the spin speed from the normal rate down to FOCUS_SPIN only
+          // AFTER centering completes, so the slow-down never fights the
+          // centering animation (that hand-off is what stuttered).
+          const rt =
+            alignedAt.current !== null
+              ? Math.min(1, (now - alignedAt.current) / FOCUS_RAMP_MS)
+              : 1;
+          const spinSpeed = IDLE_SPEED + (FOCUS_SPIN - IDLE_SPEED) * rt;
           orientation.current = qMul(
-            qFromAxisAngle([0, 0, 1], FOCUS_SPIN * dt),
+            qFromAxisAngle([0, 0, 1], spinSpeed * dt),
             orientation.current,
           );
           const nScreen = qRotateVec(
@@ -314,6 +327,7 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
     focusIndex.current = index;
     focusTarget.current = orientationUprightFacingViewer(index);
     aligning.current = true; // stand the icon upright first, then spin
+    alignedAt.current = null;
     setFocusedFace(index);
     mode.current = "focused";
   }
