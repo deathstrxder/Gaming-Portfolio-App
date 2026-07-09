@@ -1,9 +1,32 @@
 "use client";
 
+import { memo } from "react";
 import Image from "next/image";
 
 import type { Game } from "@/lib/games";
 import { cn } from "@/lib/utils";
+
+// Memoized so a hover re-render of the face (focused/dimmed/pop props changing)
+// does not re-run next/image for every one of the 12 faces — that burst was the
+// initial-hover lag. iconSrc/alt never change, so this stays mounted untouched.
+const FaceIcon = memo(function FaceIcon({
+  iconSrc,
+  alt,
+}: {
+  iconSrc: string;
+  alt: string;
+}) {
+  return (
+    <Image
+      src={iconSrc}
+      alt={alt}
+      fill
+      draggable={false}
+      sizes="200px"
+      className="select-none object-cover"
+    />
+  );
+});
 
 // Regular pentagon with a vertex at the top — matches the vertex-up face frame
 // in lib/dodecahedron.ts so the pentagons tile AND the upright icon is left/
@@ -77,14 +100,7 @@ export function DodecahedronFace({
         style={{ clipPath: PENTAGON_CLIP }}
       >
         {/* Icon fills the whole face and is cropped to the pentagon by clipPath. */}
-        <Image
-          src={iconSrc}
-          alt={game.name}
-          fill
-          draggable={false}
-          sizes="200px"
-          className="select-none object-cover"
-        />
+        <FaceIcon iconSrc={iconSrc} alt={game.name} />
       </a>
       {/* Neon pentagon edge, over the icon but not clipped so the full stroke
           shows. Two stacked strokes fake a glow without CSS filters, which can

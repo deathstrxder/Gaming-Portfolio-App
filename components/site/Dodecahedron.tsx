@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useReducedMotion } from "motion/react";
 
 import type { FaceAssignment } from "@/lib/dodecahedron";
@@ -48,7 +48,7 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
   const stageRef = useRef<HTMLDivElement>(null);
   const solidRef = useRef<HTMLDivElement>(null);
 
-  const transforms = faceTransforms(FACE_RADIUS_PX, EXPLODE);
+  const transforms = useMemo(() => faceTransforms(FACE_RADIUS_PX, EXPLODE), []);
   const boxPx = faceBoxPx(FACE_RADIUS_PX);
 
   const [focusedFace, setFocusedFace] = useState<number | null>(null);
