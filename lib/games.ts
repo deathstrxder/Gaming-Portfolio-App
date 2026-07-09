@@ -18,7 +18,7 @@ export const GAMES: Record<string, Game> = {
     logo: "/gaming/logos/clash-of-clans.png",
     splash: "/gaming/splash/clash-of-clans.jpg",
     icon: "/gaming/icons/clash-of-clans.png",
-    splashPosition: "left",
+    splashPosition: "25% center",
     bullets: [
       "The first video game I have ever played",
       "6 accounts with Town Hall 13 on my main",
