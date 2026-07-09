@@ -8,14 +8,15 @@ export function MostPlayed() {
   return (
     <section className="mx-auto w-full max-w-7xl px-6 py-28 sm:px-10">
       <div className="grid grid-cols-1 items-center gap-16 lg:grid-cols-2">
-        {/* Left: heading + interactive dodecahedron of game icons */}
-        <div>
+        {/* Left: heading + interactive dodecahedron of game icons, centered as
+            one aligned stack */}
+        <div className="flex flex-col items-center text-center">
           <Reveal from="left">
             <h2 className="font-display text-5xl font-bold tracking-tight text-ink text-glow-blue sm:text-6xl">
               Most Played Games
             </h2>
           </Reveal>
-          <div className="mt-12">
+          <div className="mt-10 w-full">
             <Dodecahedron faces={buildFaceAssignments()} />
           </div>
         </div>

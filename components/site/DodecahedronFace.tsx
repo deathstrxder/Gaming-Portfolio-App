@@ -21,6 +21,9 @@ export function DodecahedronFace({
   focused,
   pressed = false,
   popPx = 0,
+  hoverExplodePx = 0,
+  hoverActive = false,
+  dimmed = false,
   innerRef,
   onEnter,
   onClickFace,
@@ -32,6 +35,9 @@ export function DodecahedronFace({
   focused: boolean;
   pressed?: boolean;
   popPx?: number;
+  hoverExplodePx?: number;
+  hoverActive?: boolean;
+  dimmed?: boolean;
   innerRef?: React.Ref<HTMLDivElement>;
   onEnter: () => void;
   onClickFace: (e: React.MouseEvent) => void;
@@ -49,7 +55,11 @@ export function DodecahedronFace({
         // translateZ(0) baseline keeps both transform lists the same shape so
         // the pop transitions smoothly. No backface-visibility: back faces stay
         // rendered (faded via per-face opacity) so the interior is visible.
-        transform: `${transform} translateZ(${focused && !pressed ? popPx : 0}px)`,
+        // While any face is hovered, push every face out a bit more (bigger
+        // gaps) so the hovered one stands out; the hovered face also pops.
+        transform: `${transform} translateZ(${
+          (hoverActive ? hoverExplodePx : 0) + (focused && !pressed ? popPx : 0)
+        }px)`,
         transition: "transform 300ms ease",
       }}
     >
@@ -62,7 +72,7 @@ export function DodecahedronFace({
         onClick={onClickFace}
         className={cn(
           "absolute inset-0 block select-none bg-bg-elev/60 transition-[filter] duration-300",
-          focused ? "brightness-125" : "brightness-100",
+          focused ? "brightness-150" : dimmed ? "brightness-50" : "brightness-100",
         )}
         style={{ clipPath: PENTAGON_CLIP }}
       >

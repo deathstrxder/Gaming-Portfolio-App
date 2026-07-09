@@ -23,7 +23,7 @@ import {
 } from "@/lib/quat";
 import { DodecahedronFace } from "@/components/site/DodecahedronFace";
 
-const FACE_RADIUS_PX = 92.4; // pentagon circumradius (66 × 1.4)
+const FACE_RADIUS_PX = 100; // pentagon circumradius
 const PERSPECTIVE_PX = 900;
 const IDLE_SPEED = 0.00035; // rad/ms (~1 turn / 18s)
 const ENTRANCE_SPEED = 0.004; // faster tumble while it materializes
@@ -32,10 +32,11 @@ const IDLE_AXIS = [0.35, 1, 0.15] as const;
 const FOCUS_TAU = 90; // ms; smaller = snappier settle to front
 const DRAG_SENS = 0.007; // rad per px
 const DRAG_THRESHOLD_PX = 6;
-const EXPLODE = 1.12; // push faces out along their normals to open gaps
+const EXPLODE = 1.144; // push faces out along their normals to open gaps
 const POP_PX = 30; // extra outward offset for the hovered (focused) face
 const FOCUS_SPIN = 0.0005; // rad/ms — spin rate while "locked on" a hovered icon
 const BACK_OPACITY = 0.26; // faded interior faces seen through the gaps
+const HOVER_EXPLODE_PX = 22; // extra outward push for all faces while hovering
 
 type Mode = "idle" | "dragging" | "focused";
 
@@ -303,7 +304,7 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
     <div
       ref={wrapperRef}
       className="mx-auto"
-      style={{ width: "100%", maxWidth: 420, willChange: "transform, opacity" }}
+      style={{ width: "100%", maxWidth: 470, willChange: "transform, opacity" }}
     >
       <div
         ref={stageRef}
@@ -336,8 +337,11 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
               transform={transforms[f.faceIndex]}
               sizePx={boxPx}
               popPx={POP_PX}
+              hoverExplodePx={HOVER_EXPLODE_PX}
               focused={focusedFace === f.faceIndex}
               pressed={isPressed && focusedFace === f.faceIndex}
+              hoverActive={focusedFace !== null}
+              dimmed={focusedFace !== null && focusedFace !== f.faceIndex}
               onEnter={() => onFaceEnter(f.faceIndex)}
               onClickFace={(e) => onFaceClick(e, f.faceIndex, f.game.id)}
             />
