@@ -37,6 +37,7 @@ const POP_PX = 30; // extra outward offset for the hovered (focused) face
 const FOCUS_SPIN = 0.0005; // rad/ms — spin rate while "locked on" a hovered icon
 const BACK_OPACITY = 0.26; // faded interior faces seen through the gaps
 const HOVER_EXPLODE_PX = 22; // extra outward push for all faces while hovering
+const SWITCH_DELAY_MS = 500; // debounce before locking onto a different icon
 
 type Mode = "idle" | "dragging" | "focused";
 
@@ -66,6 +67,7 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
   const visible = useRef(true);
   const pointerOverFace = useRef(false);
   const scrollTimer = useRef<number | undefined>(undefined);
+  const switchTimer = useRef<number | undefined>(undefined);
 
   // The 3D orientation goes on the preserve-3d solid; the entrance scale/opacity
   // go on the outer wrapper. Applying opacity (or overflow/filter/scale-less-than-
@@ -232,6 +234,7 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
   useEffect(
     () => () => {
       if (scrollTimer.current !== undefined) window.clearTimeout(scrollTimer.current);
+      if (switchTimer.current !== undefined) window.clearTimeout(switchTimer.current);
     },
     [],
   );
@@ -240,6 +243,7 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
     (e.target as Element).setPointerCapture?.(e.pointerId);
     drag.current = { x: e.clientX, y: e.clientY, vx: 0, vy: 0, moved: 0, active: true };
     inertia.current = [0, 0];
+    clearSwitchTimer();
     setIsPressed(true); // pressing/holding a hovered icon pops it back in
     mode.current = "dragging";
   }
@@ -268,13 +272,14 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
     mode.current = focusIndex.current != null ? "focused" : "idle";
   }
 
-  function onFaceEnter(index: number) {
-    if (drag.current.active) return;
-    pointerOverFace.current = true;
-    // Returning to the same face we're already locked onto (e.g. the pointer
-    // slipped into a gap and came back without visiting another face) — keep
-    // spinning as it was, don't recenter. Only (re)align for a different face.
-    if (focusIndex.current === index && mode.current === "focused") return;
+  function clearSwitchTimer() {
+    if (switchTimer.current !== undefined) {
+      window.clearTimeout(switchTimer.current);
+      switchTimer.current = undefined;
+    }
+  }
+
+  function lockFace(index: number) {
     focusIndex.current = index;
     focusTarget.current = orientationUprightFacingViewer(index);
     aligning.current = true; // stand the icon upright first, then spin
@@ -282,8 +287,25 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
     mode.current = "focused";
   }
 
+  function onFaceEnter(index: number) {
+    if (drag.current.active) return;
+    pointerOverFace.current = true;
+    clearSwitchTimer(); // this hover supersedes any pending switch
+    // Already locked onto this face (pointer slipped off and came back) — keep
+    // spinning as it was, don't recenter.
+    if (focusIndex.current === index && mode.current === "focused") return;
+    // Switching from one locked icon to a different one — wait a beat so
+    // sweeping quickly across icons doesn't snap-align to each in passing.
+    if (mode.current === "focused" && focusIndex.current !== null) {
+      switchTimer.current = window.setTimeout(() => lockFace(index), SWITCH_DELAY_MS);
+      return;
+    }
+    lockFace(index); // not currently locked — lock immediately
+  }
+
   function onStageLeave() {
     pointerOverFace.current = false;
+    clearSwitchTimer();
     if (drag.current.active) return;
     focusIndex.current = null;
     setFocusedFace(null);
@@ -293,6 +315,7 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
   function onFaceClick(e: React.MouseEvent, index: number, gameId: string) {
     e.preventDefault();
     if (drag.current.moved > DRAG_THRESHOLD_PX) return; // it was a drag
+    clearSwitchTimer(); // a deliberate click locks immediately
     focusIndex.current = index;
     focusTarget.current = orientationUprightFacingViewer(index);
     aligning.current = true; // stand the icon upright first, then spin
