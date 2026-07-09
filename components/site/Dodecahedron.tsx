@@ -25,7 +25,7 @@ import { DodecahedronFace } from "@/components/site/DodecahedronFace";
 
 const FACE_RADIUS_PX = 100; // pentagon circumradius
 const PERSPECTIVE_PX = 900;
-const IDLE_SPEED = 0.00035; // rad/ms (~1 turn / 18s)
+const IDLE_SPEED = 0.0005; // rad/ms (~1 turn / 13s)
 const ENTRANCE_SPEED = 0.0016; // gentle tumble while it materializes
 const ENTRANCE_MS = 1100;
 const IDLE_AXIS = [0.35, 1, 0.15] as const;
