@@ -50,6 +50,7 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
   const inertia = useRef<[number, number]>([0, 0]);
   const enteredAt = useRef<number | null>(null);
   const visible = useRef(true);
+  const pointerOverFace = useRef(false);
 
   function render(scale = 1, opacity = 1) {
     const el = solidRef.current;
@@ -175,12 +176,14 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
 
   function onFaceEnter(index: number) {
     if (drag.current.active) return;
+    pointerOverFace.current = true;
     setFocusedFace(index);
     focusTarget.current = orientationBringingFaceToFront(index);
     mode.current = "focused";
   }
 
   function onStageLeave() {
+    pointerOverFace.current = false;
     if (drag.current.active) return;
     setFocusedFace(null);
     mode.current = "idle";
@@ -193,8 +196,16 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
     mode.current = "focused";
     setFocusedFace(index);
     const target = document.getElementById(`game-${gameId}`);
-    const go = () =>
+    const go = () => {
       target?.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
+      // Touch/keyboard activation has no lingering hover to hold the face, so
+      // resume the idle tumble once the scroll starts. A mouse still hovering
+      // keeps pointerOverFace true and the face stays held until it leaves.
+      if (!pointerOverFace.current) {
+        mode.current = "idle";
+        setFocusedFace(null);
+      }
+    };
     if (reduced) go();
     else window.setTimeout(go, 420);
   }
@@ -207,6 +218,7 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
       onPointerLeave={onStageLeave}
     >
       <div
