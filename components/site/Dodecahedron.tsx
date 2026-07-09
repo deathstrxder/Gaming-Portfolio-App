@@ -9,6 +9,7 @@ import {
   faceTransforms,
   faceBoxPx,
   orientationBringingFaceToFront,
+  orientationUprightFacingViewer,
 } from "@/lib/dodecahedron";
 import {
   type Quat,
@@ -54,6 +55,8 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
   const orientation = useRef<Quat>(qIdentity);
   const mode = useRef<Mode>("idle");
   const focusIndex = useRef<number | null>(null);
+  const focusTarget = useRef<Quat>(qIdentity);
+  const aligning = useRef(false);
   const faceEls = useRef<(HTMLDivElement | null)[]>([]);
   const drag = useRef({ x: 0, y: 0, vx: 0, vy: 0, moved: 0, active: false });
   const inertia = useRef<[number, number]>([0, 0]);
@@ -146,20 +149,30 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
       const since = now - enteredAt.current;
 
       if (mode.current === "focused" && focusIndex.current !== null) {
-        // Spin around the axis running through the hovered icon into the screen
-        // (world +Z), and continuously ease that face's normal toward the viewer
-        // so we stay "locked on" the icon while the shape keeps spinning.
-        orientation.current = qMul(
-          qFromAxisAngle([0, 0, 1], FOCUS_SPIN * dt),
-          orientation.current,
-        );
-        const nScreen = qRotateVec(
-          orientation.current,
-          FACE_NORMALS[focusIndex.current],
-        );
-        const correction = qShortestArc(nScreen, [0, 0, 1]);
         const k = 1 - Math.exp(-dt / FOCUS_TAU);
-        orientation.current = qMul(qSlerp(qIdentity, correction, k), orientation.current);
+        if (aligning.current) {
+          // Phase 1: ease the icon upright and facing the viewer (as in the
+          // source art) before any spin begins.
+          orientation.current = qSlerp(orientation.current, focusTarget.current, k);
+          const q = orientation.current;
+          const tgt = focusTarget.current;
+          const d = q[0] * tgt[0] + q[1] * tgt[1] + q[2] * tgt[2] + q[3] * tgt[3];
+          if (Math.abs(d) > 0.9998) aligning.current = false;
+        } else {
+          // Phase 2: spin around the axis through the hovered icon into the
+          // screen (world +Z), easing that face's normal to the viewer so we
+          // stay "locked on" while the shape keeps spinning.
+          orientation.current = qMul(
+            qFromAxisAngle([0, 0, 1], FOCUS_SPIN * dt),
+            orientation.current,
+          );
+          const nScreen = qRotateVec(
+            orientation.current,
+            FACE_NORMALS[focusIndex.current],
+          );
+          const correction = qShortestArc(nScreen, [0, 0, 1]);
+          orientation.current = qMul(qSlerp(qIdentity, correction, k), orientation.current);
+        }
       } else if (mode.current !== "dragging") {
         // idle tumble, faster during the entrance window
         let speed = IDLE_SPEED;
@@ -240,6 +253,8 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
     if (drag.current.active) return;
     pointerOverFace.current = true;
     focusIndex.current = index;
+    focusTarget.current = orientationUprightFacingViewer(index);
+    aligning.current = true; // stand the icon upright first, then spin
     setFocusedFace(index);
     mode.current = "focused";
   }
@@ -256,6 +271,8 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
     e.preventDefault();
     if (drag.current.moved > DRAG_THRESHOLD_PX) return; // it was a drag
     focusIndex.current = index;
+    focusTarget.current = orientationUprightFacingViewer(index);
+    aligning.current = true; // stand the icon upright first, then spin
     mode.current = "focused";
     setFocusedFace(index);
     const target = document.getElementById(`game-${gameId}`);

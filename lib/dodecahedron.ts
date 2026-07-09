@@ -7,6 +7,8 @@ import {
   vCross,
   vLen,
   vNorm,
+  qMul,
+  qRotateVec,
   qShortestArc,
 } from "@/lib/quat";
 import { GAMES, type Game } from "@/lib/games";
@@ -125,6 +127,17 @@ export function faceTransforms(faceRadiusPx: number, explode = 1): string[] {
 /** Container orientation that turns face `index` to face the viewer (+Z). */
 export function orientationBringingFaceToFront(index: number): Quat {
   return qShortestArc(FACE_NORMALS[index], [0, 0, 1]);
+}
+
+/**
+ * Orientation that turns face `index` to face the viewer AND stands its icon
+ * upright — the icon's local "up" (the face tangent) is aligned with screen up.
+ */
+export function orientationUprightFacingViewer(index: number): Quat {
+  const q1 = qShortestArc(FACE_NORMALS[index], [0, 0, 1]);
+  const upScreen = qRotateVec(q1, faceTangent(index));
+  const q2 = qShortestArc(upScreen, [0, -1, 0]); // screen up is -Y
+  return qMul(q2, q1);
 }
 
 export type FaceAssignment = { faceIndex: number; game: Game; iconSrc: string };
