@@ -13,21 +13,23 @@ import { GAMES, type Game } from "@/lib/games";
 
 const PHI = (1 + Math.sqrt(5)) / 2;
 
-// The 12 face normals of a regular dodecahedron are the 12 icosahedron vertices
-// (0, ±1, ±phi) and cyclic permutations, normalized.
+// The 12 face normals of a regular dodecahedron point along cyclic permutations
+// of (phi, ±1, 0), matching the vertex set below (which includes the cube
+// vertices (±1, ±1, ±1)). These are the true face normals: for each, exactly
+// five of the 20 vertices are coplanar in the plane perpendicular to it.
 const RAW_NORMALS: Vec3[] = [
-  [0, 1, PHI],
-  [0, 1, -PHI],
-  [0, -1, PHI],
-  [0, -1, -PHI],
-  [1, PHI, 0],
-  [1, -PHI, 0],
-  [-1, PHI, 0],
-  [-1, -PHI, 0],
-  [PHI, 0, 1],
-  [PHI, 0, -1],
-  [-PHI, 0, 1],
-  [-PHI, 0, -1],
+  [PHI, 1, 0],
+  [PHI, -1, 0],
+  [-PHI, 1, 0],
+  [-PHI, -1, 0],
+  [0, PHI, 1],
+  [0, PHI, -1],
+  [0, -PHI, 1],
+  [0, -PHI, -1],
+  [1, 0, PHI],
+  [-1, 0, PHI],
+  [1, 0, -PHI],
+  [-1, 0, -PHI],
 ];
 export const FACE_NORMALS: Vec3[] = RAW_NORMALS.map(vNorm);
 
@@ -153,8 +155,9 @@ export function buildFaceAssignments(): FaceAssignment[] {
   TWO_ICON_GAME_IDS.forEach((id, k) => {
     const game = GAMES[id];
     const [a, b] = pairs[k];
+    if (!game.iconAlt) throw new Error(`Missing iconAlt for ${id}`);
     out.push({ faceIndex: a, game, iconSrc: game.icon });
-    out.push({ faceIndex: b, game, iconSrc: game.iconAlt as string });
+    out.push({ faceIndex: b, game, iconSrc: game.iconAlt });
   });
 
   const [lolFace, valFace] = pairs[5];

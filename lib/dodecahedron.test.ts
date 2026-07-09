@@ -50,6 +50,18 @@ describe("dodecahedron geometry", () => {
     }
   });
 
+  it("selects five truly coplanar vertices per face (real face planes)", () => {
+    for (let i = 0; i < 12; i++) {
+      const n = FACE_NORMALS[i];
+      const verts = faceVertices(i);
+      expect(verts).toHaveLength(5);
+      const dots = verts.map((v) => vDot(v, n));
+      const spread = Math.max(...dots) - Math.min(...dots);
+      expect(spread).toBeLessThan(1e-9);            // all five share one plane ⟂ n
+      expect(Math.min(...dots)).toBeGreaterThan(0.5); // on the +normal (face) side
+    }
+  });
+
   it("produces twelve matrix3d transforms", () => {
     const t = faceTransforms(66);
     expect(t).toHaveLength(12);
