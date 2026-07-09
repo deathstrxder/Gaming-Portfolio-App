@@ -93,6 +93,17 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
       el.style.opacity = String(BACK_OPACITY + (1 - BACK_OPACITY) * t);
     }
   }
+  // Fade + shrink the whole widget as it scrolls up past the viewport top — the
+  // reverse of the entrance. The wrapper's center is invariant under its own
+  // centered scale, so reading it here is stable (no feedback with the scale).
+  function computeExitFactor(): number {
+    const el = wrapperRef.current;
+    if (!el) return 1;
+    const rect = el.getBoundingClientRect();
+    const vh = window.innerHeight || 1;
+    const center = (rect.top + rect.height / 2) / vh; // 1 at bottom, 0 at top
+    return Math.max(0, Math.min(1, center / 0.4)); // fades out over the top 40%
+  }
 
   // Trigger entrance the first time the widget is on screen; pause loop off-screen.
   useEffect(() => {
@@ -101,11 +112,13 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
     const io = new IntersectionObserver(
       (entries) => {
         for (const e of entries) {
+          // Stay "visible" (loop running) while any part is on screen, so the
+          // scroll-out fade can complete; trigger the entrance at 25% in view.
           visible.current = e.isIntersecting;
-          if (e.isIntersecting && !entered) setEntered(true);
+          if (e.intersectionRatio >= 0.25 && !entered) setEntered(true);
         }
       },
-      { threshold: 0.25 },
+      { threshold: [0, 0.25] },
     );
     io.observe(stage);
     return () => io.disconnect();
@@ -149,6 +162,7 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
       if (!visible.current) return;
 
       const since = now - enteredAt.current;
+      const exit = computeExitFactor();
 
       if (mode.current === "focused" && focusIndex.current !== null) {
         const k = 1 - Math.exp(-dt / FOCUS_TAU);
@@ -182,6 +196,7 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
           const p = since / ENTRANCE_MS;
           speed = ENTRANCE_SPEED + (IDLE_SPEED - ENTRANCE_SPEED) * p;
         }
+        speed *= 1 + (1 - exit) * 3; // spin up as it fades away on scroll-out
         orientation.current = qMul(qFromAxisAngle([...IDLE_AXIS], speed * dt), orientation.current);
 
         // decaying inertia handed off from a fling
@@ -206,7 +221,7 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
         opacity = eased;
       }
       renderRotation();
-      renderEntrance(scale, opacity);
+      renderEntrance(scale * (0.3 + 0.7 * exit), opacity * exit);
       updateFaceOpacity();
     };
 
