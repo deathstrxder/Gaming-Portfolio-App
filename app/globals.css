@@ -124,7 +124,7 @@ body::after {
   --face-z: 22px; /* pressing/holding retracts the pop */
 }
 .hovering [data-face] .dodeca-face-a {
-  filter: brightness(0.5); /* darken the other icons */
+  filter: brightness(0.25); /* darken the other icons (twice as much as before) */
 }
 .hovering [data-face].is-focused .dodeca-face-a {
   filter: brightness(1.5); /* brighten the hovered icon */
