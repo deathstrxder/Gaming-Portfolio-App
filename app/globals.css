@@ -98,6 +98,48 @@ body::after {
   outline-offset: 3px;
 }
 
+/* Neon "energy rail" scrollbar — a charged blue→purple cell riding a dark HUD
+   channel, echoing the diagonal blue/purple ambient wash. Static by design: the
+   page already carries the motion, so the scrollbar just glows and reacts. */
+html {
+  /* Firefox: single thumb color only, so lead with the primary brand blue. */
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-neon-blue) var(--color-bg-elev);
+}
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-bg-elev);
+  border-left: 1px solid rgba(34, 211, 238, 0.12);
+}
+::-webkit-scrollbar-thumb {
+  border-radius: 5px;
+  /* 2px border in the track color insets the neon cell inside the channel */
+  border: 2px solid var(--color-bg-elev);
+  background: linear-gradient(180deg, var(--color-neon-blue), var(--color-neon-purple));
+  background-clip: padding-box;
+  box-shadow:
+    0 0 8px rgba(34, 211, 238, 0.35),
+    inset 0 0 6px rgba(255, 255, 255, 0.22);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #4be3f5, #c65cff);
+  background-clip: padding-box;
+  box-shadow:
+    0 0 14px rgba(176, 0, 255, 0.5),
+    inset 0 0 8px rgba(255, 255, 255, 0.38);
+}
+::-webkit-scrollbar-thumb:active {
+  /* pressed: polarity flips, so the rail visibly reacts to being grabbed */
+  background: linear-gradient(180deg, var(--color-neon-purple), var(--color-neon-blue));
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-corner {
+  background: var(--color-bg-elev);
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
