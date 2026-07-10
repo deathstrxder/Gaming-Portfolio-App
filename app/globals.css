@@ -103,3 +103,29 @@ body::after {
     scroll-behavior: auto;
   }
 }
+
+/* Dodecahedron hover visuals — driven by classes toggled imperatively (never a
+   React re-render). `--face-z` is the outward pop/explode along each face's
+   normal; `.hovering` sits on the solid; `.is-focused`/`.is-pressed` on a face. */
+[data-face] {
+  --face-z: 0px;
+  transition: transform 300ms ease;
+}
+[data-face] .dodeca-face-a {
+  transition: filter 300ms ease;
+}
+.hovering [data-face] {
+  --face-z: 22px; /* all faces open a bit further, widening the gaps */
+}
+.hovering [data-face].is-focused {
+  --face-z: 52px; /* the hovered face pops out */
+}
+.hovering [data-face].is-focused.is-pressed {
+  --face-z: 22px; /* pressing/holding retracts the pop */
+}
+.hovering [data-face] .dodeca-face-a {
+  filter: brightness(0.25); /* darken the other icons (twice as much as before) */
+}
+.hovering [data-face].is-focused .dodeca-face-a {
+  filter: brightness(1.5); /* brighten the hovered icon */
+}
