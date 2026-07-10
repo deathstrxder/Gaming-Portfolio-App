@@ -4,11 +4,16 @@ import { memo } from "react";
 import Image from "next/image";
 
 import type { Game } from "@/lib/games";
-import { cn } from "@/lib/utils";
 
-// Memoized so a hover re-render of the face (focused/dimmed/pop props changing)
-// does not re-run next/image for every one of the 12 faces — that burst was the
-// initial-hover lag. iconSrc/alt never change, so this stays mounted untouched.
+// Regular pentagon with a vertex at the top — matches the vertex-up face frame
+// in lib/dodecahedron.ts so the pentagons tile AND the upright icon is left/
+// right symmetric within the pentagon. The same coordinates drive the clip-path
+// (percent units) and the SVG edge overlay (viewBox 0..100 units).
+const PENTAGON_POINTS = "50,0 97.55,34.55 79.39,90.45 20.61,90.45 2.45,34.55";
+const PENTAGON_CLIP =
+  "polygon(50% 0%, 97.55% 34.55%, 79.39% 90.45%, 20.61% 90.45%, 2.45% 34.55%)";
+
+// Memoized so nothing re-runs next/image after mount.
 const FaceIcon = memo(function FaceIcon({
   iconSrc,
   alt,
@@ -28,25 +33,16 @@ const FaceIcon = memo(function FaceIcon({
   );
 });
 
-// Regular pentagon with a vertex at the top — matches the vertex-up face frame
-// in lib/dodecahedron.ts so the pentagons tile AND the upright icon is left/
-// right symmetric within the pentagon. The same coordinates drive the clip-path
-// (percent units) and the SVG edge overlay (viewBox 0..100 units).
-const PENTAGON_POINTS = "50,0 97.55,34.55 79.39,90.45 20.61,90.45 2.45,34.55";
-const PENTAGON_CLIP =
-  "polygon(50% 0%, 97.55% 34.55%, 79.39% 90.45%, 20.61% 90.45%, 2.45% 34.55%)";
-
-export function DodecahedronFace({
+// All hover visual state — explode (bigger gaps), pop-out, and dim/brighten — is
+// driven by CSS classes (`hovering` on the solid; `is-focused`/`is-pressed` on
+// the face) that Dodecahedron.tsx toggles imperatively, and by the `--face-z`
+// custom property. So hovering NEVER re-renders these 12 faces; every prop here
+// is stable for the life of the widget.
+export const DodecahedronFace = memo(function DodecahedronFace({
   game,
   iconSrc,
   transform,
   sizePx,
-  focused,
-  pressed = false,
-  popPx = 0,
-  hoverExplodePx = 0,
-  hoverActive = false,
-  dimmed = false,
   innerRef,
   onEnter,
   onClickFace,
@@ -55,12 +51,6 @@ export function DodecahedronFace({
   iconSrc: string;
   transform: string;
   sizePx: number;
-  focused: boolean;
-  pressed?: boolean;
-  popPx?: number;
-  hoverExplodePx?: number;
-  hoverActive?: boolean;
-  dimmed?: boolean;
   innerRef?: React.Ref<HTMLDivElement>;
   onEnter: () => void;
   onClickFace: (e: React.MouseEvent) => void;
@@ -68,22 +58,16 @@ export function DodecahedronFace({
   return (
     <div
       ref={innerRef}
-      className="absolute left-1/2 top-1/2"
+      data-face
+      className="dodeca-face absolute left-1/2 top-1/2"
       style={{
         width: sizePx,
         height: sizePx,
         marginLeft: -sizePx / 2,
         marginTop: -sizePx / 2,
-        // Pop the hovered face outward along its normal (local +Z). The
-        // translateZ(0) baseline keeps both transform lists the same shape so
-        // the pop transitions smoothly. No backface-visibility: back faces stay
-        // rendered (faded via per-face opacity) so the interior is visible.
-        // While any face is hovered, push every face out a bit more (bigger
-        // gaps) so the hovered one stands out; the hovered face also pops.
-        transform: `${transform} translateZ(${
-          (hoverActive ? hoverExplodePx : 0) + (focused && !pressed ? popPx : 0)
-        }px)`,
-        transition: "transform 300ms ease",
+        // matrix3d orients the face; translateZ(var(--face-z)) pops/explodes it
+        // outward along its normal, animated purely via CSS class changes.
+        transform: `${transform} translateZ(var(--face-z, 0px))`,
       }}
     >
       <a
@@ -93,18 +77,14 @@ export function DodecahedronFace({
         onDragStart={(e) => e.preventDefault()}
         onPointerEnter={onEnter}
         onClick={onClickFace}
-        className={cn(
-          "absolute inset-0 block select-none bg-bg-elev/60 transition-[filter] duration-300",
-          focused ? "brightness-150" : dimmed ? "brightness-50" : "brightness-100",
-        )}
+        className="dodeca-face-a absolute inset-0 block select-none bg-bg-elev/60"
         style={{ clipPath: PENTAGON_CLIP }}
       >
         {/* Icon fills the whole face and is cropped to the pentagon by clipPath. */}
         <FaceIcon iconSrc={iconSrc} alt={game.name} />
       </a>
-      {/* Neon pentagon edge, over the icon but not clipped so the full stroke
-          shows. Two stacked strokes fake a glow without CSS filters, which can
-          break backface-visibility inside a 3D transform. */}
+      {/* Neon pentagon edge over the icon (not clipped, so the full stroke
+          shows). Two stacked strokes fake a glow without CSS filters. */}
       <svg
         viewBox="0 0 100 100"
         preserveAspectRatio="none"
@@ -115,17 +95,17 @@ export function DodecahedronFace({
           points={PENTAGON_POINTS}
           fill="none"
           stroke="rgba(34, 211, 238, 0.35)"
-          strokeWidth={focused ? 6 : 4}
+          strokeWidth={4}
           strokeLinejoin="round"
         />
         <polygon
           points={PENTAGON_POINTS}
           fill="none"
-          stroke={focused ? "#8af1ff" : "#22d3ee"}
-          strokeWidth={focused ? 2.4 : 1.4}
+          stroke="#22d3ee"
+          strokeWidth={1.4}
           strokeLinejoin="round"
         />
       </svg>
     </div>
   );
-}
+});

@@ -33,11 +33,9 @@ const FOCUS_TAU = 90; // ms; smaller = snappier settle to front
 const DRAG_SENS = 0.007; // rad per px
 const DRAG_THRESHOLD_PX = 6;
 const EXPLODE = 1.144; // push faces out along their normals to open gaps
-const POP_PX = 30; // extra outward offset for the hovered (focused) face
 const FOCUS_SPIN = 0.00035; // rad/ms — spin rate while "locked on" a hovered icon
 const FOCUS_RAMP_MS = 500; // ease the lock-on spin down to FOCUS_SPIN after centering
 const BACK_OPACITY = 0.26; // faded interior faces seen through the gaps
-const HOVER_EXPLODE_PX = 22; // extra outward push for all faces while hovering
 const SWITCH_DELAY_MS = 200; // debounce before locking onto a different icon
 
 type Mode = "idle" | "dragging" | "focused";
@@ -51,8 +49,6 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
   const transforms = useMemo(() => faceTransforms(FACE_RADIUS_PX, EXPLODE), []);
   const boxPx = faceBoxPx(FACE_RADIUS_PX);
 
-  const [focusedFace, setFocusedFace] = useState<number | null>(null);
-  const [isPressed, setIsPressed] = useState(false);
   const [entered, setEntered] = useState(false);
 
   // Loop state lives in refs so the rAF loop never triggers React re-renders.
@@ -68,6 +64,7 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
   const enteredAt = useRef<number | null>(null);
   const visible = useRef(true);
   const pointerOverFace = useRef(false);
+  const pressedRef = useRef(false);
   const lastPointer = useRef<{ x: number; y: number } | null>(null);
   const exitRef = useRef(1);
   const scrollTimer = useRef<number | undefined>(undefined);
@@ -127,8 +124,8 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
         }
         pointerOverFace.current = false;
         focusIndex.current = null;
-        setFocusedFace(null);
         mode.current = "idle";
+        applyHoverClasses();
       }
     }
   }
@@ -296,8 +293,9 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
     drag.current = { x: e.clientX, y: e.clientY, vx: 0, vy: 0, moved: 0, active: true };
     inertia.current = [0, 0];
     clearSwitchTimer();
-    setIsPressed(true); // pressing/holding a hovered icon pops it back in
+    pressedRef.current = true; // pressing/holding a hovered icon pops it back in
     mode.current = "dragging";
+    applyHoverClasses();
   }
 
   function onPointerMove(e: React.PointerEvent) {
@@ -318,7 +316,8 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
   }
 
   function onPointerUp() {
-    setIsPressed(false);
+    pressedRef.current = false;
+    applyHoverClasses();
     if (!drag.current.active) return;
     drag.current.active = false;
     inertia.current = [drag.current.vx * 0.6, drag.current.vy * 0.6];
@@ -332,13 +331,29 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
     }
   }
 
+  // Toggle the hover CSS classes imperatively so hovering never re-renders the
+  // 12 faces: `hovering` on the solid, `is-focused`/`is-pressed` on the face.
+  function applyHoverClasses() {
+    solidRef.current?.classList.toggle("hovering", focusIndex.current !== null);
+    const els = faceEls.current;
+    for (let i = 0; i < els.length; i++) {
+      const el = els[i];
+      if (!el) continue;
+      el.classList.toggle("is-focused", i === focusIndex.current);
+      el.classList.toggle(
+        "is-pressed",
+        i === focusIndex.current && pressedRef.current,
+      );
+    }
+  }
+
   function lockFace(index: number) {
     focusIndex.current = index;
     focusTarget.current = orientationUprightFacingViewer(index);
     aligning.current = true; // stand the icon upright first, then spin
     alignedAt.current = null;
-    setFocusedFace(index);
     mode.current = "focused";
+    applyHoverClasses();
   }
 
   function onFaceEnter(index: number) {
@@ -362,8 +377,8 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
     clearSwitchTimer();
     if (drag.current.active) return;
     focusIndex.current = null;
-    setFocusedFace(null);
     mode.current = "idle";
+    applyHoverClasses();
   }
 
   function onFaceClick(e: React.MouseEvent, index: number, gameId: string) {
@@ -374,7 +389,7 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
     focusTarget.current = orientationUprightFacingViewer(index);
     aligning.current = true; // stand the icon upright first, then spin
     mode.current = "focused";
-    setFocusedFace(index);
+    applyHoverClasses();
     const target = document.getElementById(`game-${gameId}`);
     const go = () => {
       target?.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
@@ -385,7 +400,7 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
       if (!pointerOverFace.current) {
         focusIndex.current = null;
         mode.current = "idle";
-        setFocusedFace(null);
+        applyHoverClasses();
       }
     };
     if (reduced) go();
@@ -428,12 +443,6 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
               iconSrc={f.iconSrc}
               transform={transforms[f.faceIndex]}
               sizePx={boxPx}
-              popPx={POP_PX}
-              hoverExplodePx={HOVER_EXPLODE_PX}
-              focused={focusedFace === f.faceIndex}
-              pressed={isPressed && focusedFace === f.faceIndex}
-              hoverActive={focusedFace !== null}
-              dimmed={focusedFace !== null && focusedFace !== f.faceIndex}
               onEnter={() => onFaceEnter(f.faceIndex)}
               onClickFace={(e) => onFaceClick(e, f.faceIndex, f.game.id)}
             />
