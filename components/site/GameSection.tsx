@@ -5,7 +5,7 @@ export function GameSection({ games }: { games: Game[] }) {
   const cols = games.length >= 3 ? "lg:grid-cols-3" : "lg:grid-cols-2";
 
   return (
-    <section className="mx-auto flex min-h-screen w-full max-w-7xl flex-col justify-center px-6 py-16 sm:px-10">
+    <section className="mx-auto flex min-h-screen w-full max-w-[120rem] flex-col justify-center px-6 py-16 sm:px-10">
       <div className={`grid grid-cols-1 gap-8 ${cols}`}>
         {games.map((game, i) => {
           // Per-game entrance overrides; every other card alternates sides and drifts

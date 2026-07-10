@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 
 export function MostPlayed() {
   return (
-    <section className="mx-auto w-full max-w-7xl px-6 py-28 sm:px-10">
+    <section className="mx-auto w-full max-w-[120rem] px-6 py-28 sm:px-10">
       <div className="grid grid-cols-1 items-center gap-16 lg:grid-cols-2">
         {/* Left: heading + interactive dodecahedron of game icons, centered as
             one aligned stack */}

@@ -52,7 +52,7 @@ export function Timeline() {
   const visibleRange = `${TIMELINE[activeIndex].year} – ${TIMELINE[Math.min(activeIndex + perView - 1, N - 1)].year}`;
 
   return (
-    <section className="mx-auto w-full max-w-7xl px-6 py-28 sm:px-10">
+    <section className="mx-auto w-full max-w-[120rem] px-6 py-28 sm:px-10">
       <h2 className="font-display text-5xl font-bold tracking-tight text-ink text-glow-purple sm:text-6xl">
         Dates I Started Playing New Games
       </h2>
