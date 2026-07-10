@@ -6,7 +6,9 @@ import { AnimatePresence, motion } from "motion/react";
 
 import { YOUTUBE_URL } from "@/lib/games";
 
-const ICON_BUTTON =
+// Shared so the splash can render pixel-identical (non-interactive) stand-ins
+// that the real buttons hand off to when the intro finishes.
+export const ICON_BUTTON =
   "group flex items-center justify-center rounded-full border border-white/10 bg-bg-elev/70 p-3 backdrop-blur-sm transition-all hover:-translate-y-0.5 hover:border-neon-blue/50 hover:box-glow-blue";
 
 export function SocialLinks() {
@@ -24,7 +26,7 @@ export function SocialLinks() {
 
   return (
     <>
-      <div className="absolute right-6 top-6 z-20 flex items-center gap-3 sm:right-12 sm:top-12">
+      <div className="absolute right-4 top-4 z-20 flex items-center gap-3 sm:right-6 sm:top-6">
         <button
           type="button"
           onClick={() => setOpen(true)}

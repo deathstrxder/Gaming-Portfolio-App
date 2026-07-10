@@ -9,7 +9,7 @@ import { Reveal } from "@/components/site/Reveal";
 
 function Divider() {
   return (
-    <div className="mx-auto max-w-7xl px-6 sm:px-10">
+    <div className="mx-auto max-w-[120rem] px-6 sm:px-10">
       <div className="h-px bg-gradient-to-r from-transparent via-neon-blue/30 to-transparent" />
     </div>
   );
