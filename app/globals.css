@@ -98,31 +98,6 @@ body::after {
   outline-offset: 3px;
 }
 
-/* Ambient "hacker" code streaks — a fixed layer of diagonal monospace glyph
-   strings that type in and delete backwards behind all content. Positions,
-   colors, and text are set inline per streak by the HackerStreaks component
-   (client-only + reduced-motion aware, so this layer is simply absent when
-   motion is reduced). */
-.hacker-streaks-layer {
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  overflow: hidden;
-  pointer-events: none;
-}
-.hacker-streak {
-  position: absolute;
-  /* pin rotation at the left start so the line only grows/shrinks in place */
-  transform-origin: left center;
-  font-family: ui-monospace, "SFMono-Regular", "Menlo", "Consolas", monospace;
-  font-size: 0.95rem;
-  letter-spacing: 0.08em;
-  /* pre (not nowrap) so the leading spaces that position the traveling trail render */
-  white-space: pre;
-  opacity: 0.14;
-  user-select: none;
-}
-
 /* Neon "energy rail" scrollbar — a charged blue→purple cell riding a dark HUD
    channel, echoing the diagonal blue/purple ambient wash. Static by design: the
    page already carries the motion, so the scrollbar just glows and reacts. */

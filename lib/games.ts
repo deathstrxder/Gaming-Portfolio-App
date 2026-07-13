@@ -50,7 +50,7 @@ export const GAMES: Record<string, Game> = {
     iconAlt: "/gaming/icons/brawl-stars-2.webp",
     splashPosition: "35% center",
     bullets: [
-      "Masters after the first ranked update",
+      "Hit masters after the first ranked update",
       "I swear I could go pro if I tried",
     ],
   },
@@ -142,20 +142,18 @@ export const STATS: { big: string; small: string }[] = [
 
 export type TimelineEvent = {
   year: number;
-  /** Short label as drawn on the template (e.g. "CoC"). */
-  short: string;
   game: Game;
 };
 
 /** "Dates I Started Playing New Games" — ordered start to finish. */
 export const TIMELINE: TimelineEvent[] = [
-  { year: 2013, short: "CoC", game: GAMES["clash-of-clans"] },
-  { year: 2015, short: "MC", game: GAMES.minecraft },
-  { year: 2016, short: "CR", game: GAMES["clash-royale"] },
-  { year: 2019, short: "FN", game: GAMES.fortnite },
-  { year: 2023, short: "Brawl", game: GAMES["brawl-stars"] },
-  { year: 2024, short: "Val", game: GAMES.valorant },
-  { year: 2025, short: "LoL", game: GAMES["league-of-legends"] },
+  { year: 2013, game: GAMES["clash-of-clans"] },
+  { year: 2015, game: GAMES.minecraft },
+  { year: 2016, game: GAMES["clash-royale"] },
+  { year: 2019, game: GAMES.fortnite },
+  { year: 2023, game: GAMES["brawl-stars"] },
+  { year: 2024, game: GAMES.valorant },
+  { year: 2025, game: GAMES["league-of-legends"] },
 ];
 
 export const YOUTUBE_URL = "https://www.youtube.com/@deathstrxder";

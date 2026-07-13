@@ -51,10 +51,11 @@ export function Reveal({
     const el = ref.current;
     if (!el) return;
 
-    // No IntersectionObserver support → just show it (CSS still handles the look).
+    // No IntersectionObserver support (very old browsers) → just show it. Defer out
+    // of the effect body so we don't call setState synchronously during the effect.
     if (typeof IntersectionObserver === "undefined") {
-      setPhase("visible");
-      return;
+      const raf = requestAnimationFrame(() => setPhase("visible"));
+      return () => cancelAnimationFrame(raf);
     }
 
     const io = new IntersectionObserver(
