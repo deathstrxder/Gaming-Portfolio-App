@@ -16,8 +16,10 @@ import { useIntro } from "@/components/site/IntroContext";
  * once the intro is done.
  */
 
-const COLS = 28;
-const ROWS = 16;
+// Typed as `number` (not the literal 28/16) so the single-column/row division-by-zero
+// guards below (e.g. `COLS === 1 ? …`) are valid comparisons rather than TS "no overlap" errors.
+const COLS: number = 28;
+const ROWS: number = 16;
 const CURTAIN_COLOR = "#06091a"; // matches the Eddie section background
 const SWEEP_MS = 900; // time for the dissolve to travel bottom → top
 const CURVE_MS = 300; // "smile": how far the sides run ahead of the middle
