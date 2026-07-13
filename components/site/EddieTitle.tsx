@@ -9,13 +9,13 @@ export function EddieTitle({ className }: { className?: string }) {
   return (
     <div className={className}>
       <p
-        className="eyebrow text-base text-neon-blue/80 sm:text-lg"
+        className="eyebrow text-[clamp(0.72rem,3vw,1.125rem)] text-neon-blue/80"
         aria-label="Playing games since 2013"
       >
         <Typed segments={[{ text: "Playing games since 2013" }]} delay={0} />
       </p>
       <h1
-        className="mt-6 whitespace-nowrap font-display text-[3.4rem] font-black leading-[0.95] tracking-tight text-ink sm:text-[4.1rem] lg:text-[5.45rem]"
+        className="mt-6 whitespace-nowrap font-display text-[clamp(2rem,10vw,5.45rem)] font-black leading-[0.95] tracking-tight text-ink"
         aria-label="Eddie Zeng:"
       >
         <Typed
@@ -28,10 +28,10 @@ export function EddieTitle({ className }: { className?: string }) {
           delay={900}
         />
       </h1>
-      <div className="mt-8 flex items-center gap-5">
-        <span className="h-0.5 w-16 bg-gradient-to-r from-neon-blue to-neon-purple sm:w-24" />
+      <div className="mt-6 flex items-center gap-3 sm:mt-8 sm:gap-5">
+        <span className="h-0.5 w-10 bg-gradient-to-r from-neon-blue to-neon-purple sm:w-24" />
         <p
-          className="whitespace-nowrap bg-gradient-to-r from-neon-blue to-neon-purple bg-clip-text font-display text-4xl font-bold uppercase tracking-[0.15em] text-transparent sm:text-5xl lg:text-6xl"
+          className="whitespace-nowrap bg-gradient-to-r from-neon-blue to-neon-purple bg-clip-text font-display text-[clamp(1.25rem,6vw,3.75rem)] font-bold uppercase tracking-[0.15em] text-transparent"
           aria-label="Amateur Gamer"
         >
           <Typed segments={[{ text: "Amateur Gamer" }]} delay={1350} />

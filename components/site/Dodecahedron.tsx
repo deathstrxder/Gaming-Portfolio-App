@@ -23,8 +23,9 @@ import {
 } from "@/lib/quat";
 import { DodecahedronFace } from "@/components/site/DodecahedronFace";
 
-const FACE_RADIUS_PX = 125; // pentagon circumradius
+const FACE_RADIUS_PX = 125; // pentagon circumradius (at full size)
 const PERSPECTIVE_PX = 1125; // scaled with the radius so the projection looks identical, just larger
+const MAX_PX = 588; // full-size footprint; below this the whole solid scales down to fit
 const IDLE_SPEED = 0.0005; // rad/ms (~1 turn / 13s)
 const ENTRANCE_SPEED = 0.0016; // gentle tumble while it materializes
 const ENTRANCE_MS = 1100;
@@ -46,10 +47,28 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
   const stageRef = useRef<HTMLDivElement>(null);
   const solidRef = useRef<HTMLDivElement>(null);
 
-  const transforms = useMemo(() => faceTransforms(FACE_RADIUS_PX, EXPLODE), []);
-  const boxPx = faceBoxPx(FACE_RADIUS_PX);
+  // The whole solid scales with the container. The geometry is linear in the face
+  // radius, and the perspective scales with it too, so the projection looks identical
+  // — just smaller. Without this the fixed-size 3D solid overflows narrow screens and
+  // overlaps the heading/stats around it. `fit` = container width ÷ full footprint.
+  const [fit, setFit] = useState(1);
+  const radius = FACE_RADIUS_PX * fit;
+  const transforms = useMemo(() => faceTransforms(radius, EXPLODE), [radius]);
+  const boxPx = faceBoxPx(radius);
 
   const [entered, setEntered] = useState(false);
+
+  // Measure the container and scale the solid to fit (fixes the mobile overflow).
+  useEffect(() => {
+    const el = wrapperRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => {
+      const w = el.clientWidth;
+      if (w > 0) setFit(Math.min(1, Math.round((w / MAX_PX) * 1000) / 1000));
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   // Loop state lives in refs so the rAF loop never triggers React re-renders.
   const orientation = useRef<Quat>(qIdentity);
@@ -411,12 +430,12 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
     <div
       ref={wrapperRef}
       className="mx-auto"
-      style={{ width: "100%", maxWidth: 588, willChange: "transform, opacity" }}
+      style={{ width: "100%", maxWidth: MAX_PX, willChange: "transform, opacity" }}
     >
       <div
         ref={stageRef}
         className="grid touch-none select-none place-items-center"
-        style={{ width: "100%", aspectRatio: "1 / 1", perspective: PERSPECTIVE_PX }}
+        style={{ width: "100%", aspectRatio: "1 / 1", perspective: PERSPECTIVE_PX * fit }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
