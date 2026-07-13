@@ -16,8 +16,8 @@ export function GameCard({
   exit?: "origin" | "through";
 }) {
   return (
-    <Reveal from={from} exit={exit} className="h-full">
-      <Card className="hud-corners group h-full min-h-[32rem] lg:min-h-[78vh]">
+    <Reveal from={from} exit={exit} className="h-full" backdrop="rounded-xl bg-bg">
+      <Card className="hud-corners group h-full min-h-[32rem] lg:min-h-[82vh]">
         {/* Splash art: blurred + faded so it sets mood without fighting the text */}
         <div className="absolute inset-0">
           <Image
@@ -26,7 +26,7 @@ export function GameCard({
             fill
             sizes="(max-width: 768px) 100vw, 33vw"
             style={game.splashPosition ? { objectPosition: game.splashPosition } : undefined}
-            className="transform-gpu scale-110 object-cover opacity-45 blur-[5px] transition-all duration-500 group-hover:opacity-60"
+            className="transform-gpu scale-110 object-cover opacity-45 blur-[5px] transition-opacity duration-500 group-hover:opacity-60"
           />
           {/* Bottom-weighted scrim: art stays visible up top, bullets stay readable below */}
           <div className="absolute inset-0 bg-gradient-to-b from-bg/40 via-bg/65 to-bg/90" />

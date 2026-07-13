@@ -98,6 +98,31 @@ body::after {
   outline-offset: 3px;
 }
 
+/* Ambient "hacker" code streaks — a fixed layer of diagonal monospace glyph
+   strings that type in and delete backwards behind all content. Positions,
+   colors, and text are set inline per streak by the HackerStreaks component
+   (client-only + reduced-motion aware, so this layer is simply absent when
+   motion is reduced). */
+.hacker-streaks-layer {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+.hacker-streak {
+  position: absolute;
+  /* pin rotation at the left start so the line only grows/shrinks in place */
+  transform-origin: left center;
+  font-family: ui-monospace, "SFMono-Regular", "Menlo", "Consolas", monospace;
+  font-size: 0.95rem;
+  letter-spacing: 0.08em;
+  /* pre (not nowrap) so the leading spaces that position the traveling trail render */
+  white-space: pre;
+  opacity: 0.14;
+  user-select: none;
+}
+
 /* Neon "energy rail" scrollbar — a charged blue→purple cell riding a dark HUD
    channel, echoing the diagonal blue/purple ambient wash. Static by design: the
    page already carries the motion, so the scrollbar just glows and reacts. */
@@ -216,27 +241,8 @@ html {
   }
 }
 
-/* Background gif rises straight up from the bottom, tilted a few degrees (and
-   scaled slightly so the tilt doesn't open side gaps), straightening and settling
-   level as it reaches the top. It stays fully opaque so the not-yet-covered area at
-   the top reads as solid black (the section's bg-bg), not a grey flash. Its blur is
-   clipped by the backdrop's own overflow so the moving edge is a clean border.
-   Held off-screen during loading. */
-:root[data-intro-phase="loading"] .intro-flyup {
-  opacity: 0;
-  transform: translateY(100%) rotate(8deg) scale(1.18);
-}
-:root[data-intro-phase="revealing"] .intro-flyup {
-  animation: fly-up 1200ms cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-@keyframes fly-up {
-  from {
-    transform: translateY(100%) rotate(8deg) scale(1.18);
-  }
-  to {
-    transform: translateY(0) rotate(0deg) scale(1);
-  }
-}
+/* The home background reveal (a bottom-to-top pixel-mosaic dissolve) is handled by
+   the PixelReveal component with inline styles — see components/site/PixelReveal.tsx. */
 
 /* Portrait + social buttons blink into existence during the reveal (slow neon
    flicker). Held invisible during loading. */
@@ -249,9 +255,11 @@ html {
   /* step-end → the flicker snaps on/off like a light switch, no fading */
   animation: blink-in 1600ms step-end both;
 }
-/* The portrait waits until the social icons have finished blinking in. */
+/* The portrait starts just after the social icons' first blink — their first
+   flash-on lands at the 10% keyframe of the 1600ms flicker (~160ms) — so it
+   cascades in alongside them rather than waiting for their whole flicker. */
 :root[data-intro-phase="revealing"] .intro-blink-2 {
-  animation-delay: 1600ms;
+  animation-delay: 200ms;
 }
 @keyframes blink-in {
   0% {
@@ -310,13 +318,11 @@ html {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  :root[data-intro-phase="loading"] .intro-flyup,
   :root[data-intro-phase="loading"] .intro-blink,
   :root[data-intro-phase="loading"] .intro-blink-2 {
     opacity: 0;
     transform: none;
   }
-  :root[data-intro-phase="revealing"] .intro-flyup,
   :root[data-intro-phase="revealing"] .intro-blink,
   :root[data-intro-phase="revealing"] .intro-blink-2 {
     animation: none;
@@ -330,5 +336,122 @@ html {
   .bar-blink {
     animation: none;
     opacity: 0;
+  }
+}
+
+/* ============================================================
+   Section streaks — decorative diagonal neon trails behind the
+   non-home sections (rendered by components/site/SectionStreaks.tsx).
+   Pure CSS: only `transform` animates, so the whole effect lives on
+   the compositor thread — no main-thread work, no scroll jank, no
+   image decode. This replaces the old animated-GIF background.
+   ============================================================ */
+.section-streaks {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  /* Fade the field toward the edges so it reads as ambient, not a curtain. */
+  -webkit-mask-image: radial-gradient(125% 100% at 50% 0%, black 35%, transparent 92%);
+  mask-image: radial-gradient(125% 100% at 50% 0%, black 35%, transparent 92%);
+}
+
+.streak {
+  position: absolute;
+  top: 0;
+  width: 2px;
+  height: var(--len, 45vh);
+  border-radius: 2px;
+  /* Long transparent tail rising to a bright leading head. */
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    var(--streak-color, var(--color-neon-blue)) 88%,
+    transparent
+  );
+  opacity: var(--streak-opacity, 0.4);
+  /* drop-shadow follows the gradient's alpha, so only the visible trail glows. */
+  filter: drop-shadow(0 0 4px var(--streak-color, var(--color-neon-blue)));
+  will-change: transform;
+  transform: rotate(18deg) translate3d(0, -130vh, 0);
+  animation: streak-fall var(--dur, 9s) linear var(--delay, 0s) infinite;
+}
+
+@keyframes streak-fall {
+  from {
+    transform: rotate(18deg) translate3d(0, -130vh, 0);
+  }
+  to {
+    transform: rotate(18deg) translate3d(0, 130vh, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .streak {
+    /* Rest them mid-field, static, so the section keeps its ambient texture. */
+    animation: none;
+    transform: rotate(18deg) translate3d(0, 0, 0);
+    opacity: 0.18;
+  }
+}
+
+/* ============================================================
+   Reveal — fade + slide for cards/sections, in AND out (see
+   components/site/Reveal.tsx). An IntersectionObserver toggles
+   `.is-visible` while the element is in the active band and
+   `.is-leaving` once it has scrolled up past it; content fades in on
+   entry and fades out on the way past, in both scroll directions.
+   The timing is a fixed-duration transition (time-based, not scrubbed
+   to scroll), so a fast scroll still fades fully in/out instead of
+   blinking, and there's no per-frame scroll work — the observer fires
+   only on band crossings and the transition runs on the compositor.
+   The per-instance `--enter` / `--leave` offsets are set inline by the
+   component (they encode `from` and `exit`).
+   `.reveal`        → fades AND slides (no backdrop)
+   `.reveal-slide`  → slides only (outer element, carries the backdrop)
+   `.reveal-fade`   → fades only  (inner element, over the backdrop)
+   ============================================================ */
+.reveal,
+.reveal-slide,
+.reveal-fade {
+  will-change: transform, opacity;
+  transition:
+    opacity 500ms ease,
+    transform 500ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Hidden (entering) and leaving both rest at opacity 0; only .is-visible lights up. */
+.reveal,
+.reveal-fade {
+  opacity: 0;
+}
+.reveal.is-visible,
+.reveal-fade.is-visible {
+  opacity: 1;
+}
+
+/* Transform: enter offset by default, home when visible, exit offset when leaving. */
+.reveal,
+.reveal-slide {
+  transform: var(--enter, translate3d(0, 0, 0));
+}
+.reveal.is-visible,
+.reveal-slide.is-visible {
+  transform: translate3d(0, 0, 0);
+}
+.reveal.is-leaving,
+.reveal-slide.is-leaving {
+  transform: var(--leave, translate3d(0, 0, 0));
+}
+
+/* Reduced motion: no slide, no fade animation — just show it. */
+@media (prefers-reduced-motion: reduce) {
+  .reveal,
+  .reveal-slide,
+  .reveal-fade {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
   }
 }

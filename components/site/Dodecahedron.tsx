@@ -23,8 +23,8 @@ import {
 } from "@/lib/quat";
 import { DodecahedronFace } from "@/components/site/DodecahedronFace";
 
-const FACE_RADIUS_PX = 100; // pentagon circumradius
-const PERSPECTIVE_PX = 900;
+const FACE_RADIUS_PX = 125; // pentagon circumradius
+const PERSPECTIVE_PX = 1125; // scaled with the radius so the projection looks identical, just larger
 const IDLE_SPEED = 0.0005; // rad/ms (~1 turn / 13s)
 const ENTRANCE_SPEED = 0.0016; // gentle tumble while it materializes
 const ENTRANCE_MS = 1100;
@@ -411,7 +411,7 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
     <div
       ref={wrapperRef}
       className="mx-auto"
-      style={{ width: "100%", maxWidth: 470, willChange: "transform, opacity" }}
+      style={{ width: "100%", maxWidth: 588, willChange: "transform, opacity" }}
     >
       <div
         ref={stageRef}

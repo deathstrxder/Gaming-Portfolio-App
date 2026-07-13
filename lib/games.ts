@@ -21,7 +21,7 @@ export const GAMES: Record<string, Game> = {
     splash: "/gaming/splash/clash-of-clans.jpg",
     icon: "/gaming/icons/clash-of-clans.png",
     iconAlt: "/gaming/icons/clash-of-clans-2.webp",
-    splashPosition: "25% center",
+    splashPosition: "15% center",
     bullets: [
       "The first video game I have ever played",
       "6 accounts with Town Hall 13 on my main",
@@ -61,7 +61,7 @@ export const GAMES: Record<string, Game> = {
     splash: "/gaming/splash/league-of-legends.jpg",
     icon: "/gaming/icons/league-of-legends.png",
     bullets: [
-      "Ranked Platinum 2",
+      "Peak rank is Platinum 2",
       "Lux main",
       "Play Midlane/Support",
       "My main game as of 2026",
@@ -73,8 +73,9 @@ export const GAMES: Record<string, Game> = {
     logo: "/gaming/logos/valorant.png",
     splash: "/gaming/splash/valorant.jpg",
     icon: "/gaming/icons/valorant.jpg",
+    splashPosition: "20% center",
     bullets: [
-      "Ranked Silver I but I have barely played ranked",
+      "Peaked Silver I but I have barely played ranked",
       "Swiftplay Demon",
       "Ascendent aim; gold gamesense",
     ],
@@ -123,6 +124,16 @@ export const SECTION_GROUPS: { id: string; games: Game[] }[] = [
     games: [GAMES.minecraft, GAMES.fortnite],
   },
 ];
+
+/** The home page's five scroll sections, in order — shared by the nav bar and the
+ *  per-section headers so their numbers and titles never drift apart. */
+export const NAV_SECTIONS = [
+  { id: "most-played", label: "Most Played Games" },
+  { id: "supercell", label: "Supercell Games" },
+  { id: "riot", label: "Riot Games" },
+  { id: "other", label: "Other Games" },
+  { id: "timeline", label: "Timeline" },
+] as const;
 
 export const STATS: { big: string; small: string }[] = [
   { big: "10,000+ Hours", small: "Spent Playing Games" },

@@ -52,7 +52,7 @@ export function Timeline() {
   const visibleRange = `${TIMELINE[activeIndex].year} – ${TIMELINE[Math.min(activeIndex + perView - 1, N - 1)].year}`;
 
   return (
-    <section className="mx-auto w-full max-w-[120rem] px-6 py-28 sm:px-10">
+    <section className="mx-auto flex min-h-screen w-full max-w-[120rem] flex-col justify-center px-6 pb-16 pt-24 sm:px-10">
       <h2 className="font-display text-5xl font-bold tracking-tight text-ink text-glow-purple sm:text-6xl">
         Dates I Started Playing New Games
       </h2>
@@ -107,15 +107,20 @@ export function Timeline() {
                         : "border-white/10 opacity-60"
                     }`}
                   >
-                    <div className="relative mx-auto h-14 w-14">
+                    <a
+                      href={`#game-${event.game.id}`}
+                      aria-label={`Jump to ${event.game.name}`}
+                      title={`Jump to ${event.game.name}`}
+                      className="group/icon relative mx-auto block h-14 w-14 rounded-md outline-none transition duration-200 hover:scale-110 focus-visible:ring-2 focus-visible:ring-neon-blue focus-visible:ring-offset-2 focus-visible:ring-offset-bg-elev"
+                    >
                       <Image
                         src={event.game.icon}
                         alt={event.game.name}
                         fill
                         sizes="56px"
-                        className="object-contain"
+                        className="object-contain transition duration-200 group-hover/icon:drop-shadow-[0_0_10px_rgba(34,211,238,0.65)]"
                       />
-                    </div>
+                    </a>
                     <p className="mt-2 font-display text-2xl font-bold text-neon-blue">
                       {event.year}
                     </p>
