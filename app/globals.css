@@ -23,6 +23,53 @@ body {
   font-family: var(--font-body), system-ui, sans-serif;
 }
 
+/* ============================================================
+   Custom cursor — the two blades from media/Assets/cursors.png, recolored
+   to the site's HUD palette. Their exact shape, silhouette, bevel, and
+   hollow window are preserved from the source art (pixel-for-pixel) — only
+   the hues are mapped. A one-time offline pipeline flood-fills the grey
+   backdrop + drop shadow to transparent, gradient-maps the metal, and bakes
+   the result straight into these base64 PNG data URIs:
+     - default: the gold blade remapped to cool blue-steel (icy highlight ->
+       indigo shadow), dark unlit window.
+     - hover ("with light"): the silver blade, its crystal window re-tinted
+       to a neon cyan->purple gem with a soft outer glow.
+   Interactive elements (links, buttons, the dodecahedron <a> faces) get the
+   lit blade, so hovering a clickable reads as "charged."
+
+   Data URIs (not bundled assets) so they're path-independent — they survive
+   the GitHub-Pages basePath and this project's static export with zero path
+   resolution. The trailing "X Y" is the hotspot (the blade's tip pixel), so
+   clicks land precisely. To restyle, re-run the recolor pipeline on
+   media/Assets/cursors.png and replace the data below.
+   ============================================================ */
+:root {
+  --cursor-arrow: url("data:image/png;base64,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") 3 2, auto;
+  --cursor-hand: url("data:image/png;base64,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") 4 3, pointer;
+}
+
+html {
+  cursor: var(--cursor-arrow);
+}
+
+/* Clickable things get the brighter, purple-forward variant so the theme
+   survives on links/buttons instead of reverting to the OS hand. The
+   dodecahedron faces are <a href> too, so they're covered here. */
+a[href],
+button,
+[role="button"],
+summary,
+label[for],
+select,
+.cursor-pointer {
+  cursor: var(--cursor-hand);
+}
+
+:disabled,
+[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
 /* Ambient atmosphere: fixed neon glow wash + faint HUD grid, behind all content. */
 body::before {
   content: "";
