@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 
 import { NAV_SECTIONS } from "@/lib/games";
@@ -48,6 +48,12 @@ export function NavBar() {
   const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  // The active section, mirrored in a ref so the on-open positioning effect can read
+  // the latest value without re-running each time you scroll past a section.
+  const activeRef = useRef(active);
+  useEffect(() => {
+    activeRef.current = active;
+  }, [active]);
 
   // Scroll-spy: whichever section is crossing the middle of the viewport is active.
   useEffect(() => {
@@ -79,11 +85,34 @@ export function NavBar() {
     return () => document.removeEventListener("keydown", onKey);
   }, [open]);
 
-  // Move focus into the bar when it opens (keyboard users get a target; mouse users
-  // don't see a ring thanks to :focus-visible).
+  // Smoothly scroll a link to the centre of the (scrollable) bar, clamped so the
+  // first/last links don't over-scroll past the ends — "centre it if possible".
+  const centerInBar = useCallback((el: HTMLElement | null) => {
+    const menu = menuRef.current;
+    if (!menu || !el) return;
+    const c = menu.getBoundingClientRect();
+    const e = el.getBoundingClientRect();
+    const center = e.left - c.left + menu.scrollLeft + e.width / 2 - menu.clientWidth / 2;
+    const max = menu.scrollWidth - menu.clientWidth;
+    menu.scrollTo({ left: Math.max(0, Math.min(center, max)), behavior: "smooth" });
+  }, []);
+
+  // When the bar opens, position the scroll so the current section is in view: home
+  // stays at the start (its icon sits clear of the X); any other section is centred.
+  // Runs after the ~300ms unfurl (so the width has settled), then moves focus to the
+  // active link for keyboard users — preventScroll so it doesn't undo the centring.
   useEffect(() => {
-    if (open) menuRef.current?.querySelector<HTMLAnchorElement>("a")?.focus();
-  }, [open]);
+    if (!open) return;
+    const menu = menuRef.current;
+    if (!menu) return;
+    menu.scrollLeft = 0; // home sits at the start as the bar unfurls
+    const id = window.setTimeout(() => {
+      const el = menu.querySelector<HTMLElement>('[aria-current="true"]');
+      if (el && activeRef.current !== HOME_ID) centerInBar(el);
+      el?.focus({ preventScroll: true });
+    }, 320);
+    return () => window.clearTimeout(id);
+  }, [open, centerInBar]);
 
   const line =
     "absolute left-0 h-0.5 w-6 rounded-full bg-neon-blue shadow-[0_0_8px_rgba(34,211,238,0.85)] transition-all duration-300";
@@ -111,7 +140,7 @@ export function NavBar() {
           phase === "loading" ? "pointer-events-none" : ""
         }`}
       >
-        <div className="flex h-12 items-center rounded-full border border-white/10 bg-bg/70 backdrop-blur-md box-glow-blue">
+        <div className="flex h-12 max-w-[calc(100vw-2rem)] items-center rounded-full border border-white/10 bg-bg/70 backdrop-blur-md box-glow-blue sm:max-w-[calc(100vw-3rem)]">
           <button
             ref={btnRef}
             type="button"
@@ -135,16 +164,25 @@ export function NavBar() {
           {/* Horizontal reveal: grid column animates 0fr → 1fr, so the bar unfurls to
               the right and settles at the links' natural width. */}
           <div
-            className="grid transition-[grid-template-columns] duration-300 ease-out motion-reduce:transition-none"
+            className="grid min-w-0 transition-[grid-template-columns] duration-300 ease-out motion-reduce:transition-none"
             style={{ gridTemplateColumns: open ? "1fr" : "0fr" }}
           >
-            <div id="nav-menu" ref={menuRef} inert={!open} className="overflow-hidden">
+            {/* Scrolls horizontally when the links are wider than the (viewport-capped)
+                bar, so every section stays reachable on small screens. Scrollbar hidden;
+                swipe / trackpad to scroll. */}
+            <div
+              id="nav-menu"
+              ref={menuRef}
+              inert={!open}
+              className="overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            >
               <ul className="flex items-center gap-1 whitespace-nowrap py-1.5 pl-1 pr-3">
                 <li className="shrink-0">
                   <a
                     href={`#${HOME_ID}`}
                     aria-label="Home"
                     aria-current={active === HOME_ID ? "true" : undefined}
+                    onClick={(e) => centerInBar(e.currentTarget)}
                     className={`flex items-center rounded-full px-3 py-1.5 text-base transition-colors ${
                       active === HOME_ID ? "text-neon-blue text-glow-blue" : "text-muted hover:text-ink"
                     }`}
@@ -160,6 +198,7 @@ export function NavBar() {
                       <a
                         href={`#${s.id}`}
                         aria-current={isActive ? "true" : undefined}
+                        onClick={(e) => centerInBar(e.currentTarget)}
                         className={`flex items-center gap-2 whitespace-nowrap rounded-full px-3.5 py-1.5 font-display text-xs uppercase tracking-[0.16em] transition-colors sm:text-sm ${
                           isActive
                             ? "bg-neon-blue/10 text-neon-blue text-glow-blue"

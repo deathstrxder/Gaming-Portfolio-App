@@ -53,7 +53,7 @@ export function Timeline() {
 
   return (
     <section className="mx-auto flex min-h-screen w-full max-w-[120rem] flex-col justify-center px-6 pb-16 pt-24 sm:px-10">
-      <h2 className="font-display text-5xl font-bold tracking-tight text-ink text-glow-purple sm:text-6xl">
+      <h2 className="font-display text-4xl font-bold tracking-tight text-ink text-glow-purple sm:text-6xl">
         Dates I Started Playing New Games
       </h2>
 
@@ -135,17 +135,18 @@ export function Timeline() {
         </motion.div>
       </div>
 
-      {/* Controls */}
-      <div className="mt-14 flex items-center justify-center gap-6">
+      {/* Controls — compact on phones, full size on sm+ (the desktop buttons are unchanged). */}
+      <div className="mt-10 flex items-center justify-center gap-2 sm:mt-14 sm:gap-6">
         <Button
           variant="neon"
           onClick={() => setIndex(Math.max(0, activeIndex - 1))}
           disabled={atStart}
           aria-label="Previous year"
+          className="h-9 px-3 text-xs tracking-[0.1em] sm:h-11 sm:px-6 sm:text-sm sm:tracking-[0.2em]"
         >
           ‹ Prev
         </Button>
-        <span className="min-w-[8rem] text-center font-display text-base uppercase tracking-[0.2em] text-muted">
+        <span className="min-w-[4.5rem] text-center font-display text-sm uppercase tracking-[0.12em] text-muted sm:min-w-[8rem] sm:text-base sm:tracking-[0.2em]">
           {visibleRange}
         </span>
         <Button
@@ -153,6 +154,7 @@ export function Timeline() {
           onClick={() => setIndex(Math.min(maxIndex, activeIndex + 1))}
           disabled={atEnd}
           aria-label="Next year"
+          className="h-9 px-3 text-xs tracking-[0.1em] sm:h-11 sm:px-6 sm:text-sm sm:tracking-[0.2em]"
         >
           Next ›
         </Button>
