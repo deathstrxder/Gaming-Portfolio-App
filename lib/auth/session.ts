@@ -21,7 +21,14 @@ export const baseSessionOptions: SessionOptions = {
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    // No maxAge here -> a session cookie (browser clears it on close).
+    // Explicit `maxAge: undefined` (not just omitted) -> a session cookie
+    // (browser clears it on close). iron-session's getSessionConfig() only
+    // skips computing its own Max-Age when the "maxAge" key is present on
+    // cookieOptions; if the key is absent entirely it derives one from ttl,
+    // and ttl:0 is treated as "no expiry" -> Max-Age=2147483647 (~68 years),
+    // which is NOT a session cookie. Keeping the key with an undefined value
+    // makes the `cookie` package omit Max-Age/Expires from Set-Cookie.
+    maxAge: undefined,
   },
 };
 

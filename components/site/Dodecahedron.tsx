@@ -296,6 +296,10 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
   );
 
   // Keep the scroll-position factors current via scroll/resize (not the loop).
+  // updatePosition only reads/writes refs (wrapperRef, exitRef, mode,
+  // lastPointer, stageRef), never component state/props, so it is stable in
+  // behavior across renders even though its reference is not memoized —
+  // safe to register once on mount.
   useEffect(() => {
     updatePosition();
     window.addEventListener("scroll", updatePosition, { passive: true });
@@ -304,6 +308,7 @@ export function Dodecahedron({ faces }: { faces: FaceAssignment[] }) {
       window.removeEventListener("scroll", updatePosition);
       window.removeEventListener("resize", updatePosition);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function onPointerDown(e: React.PointerEvent) {
