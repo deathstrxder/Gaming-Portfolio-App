@@ -8,8 +8,8 @@ import { ADMIN_EMAIL, ADMIN_USERNAME } from "../auth/admin";
 // that no client component imports, so it never ships to the browser bundle.
 const ADMIN_PASSWORD = "Bobbynumber1!";
 
-export function seedAdmin(
-  db: BetterSQLite3Database<Record<string, never>>,
+export function seedAdmin<TSchema extends Record<string, unknown>>(
+  db: BetterSQLite3Database<TSchema>,
 ): { created: boolean } {
   const existing = db
     .select()

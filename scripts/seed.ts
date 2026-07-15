@@ -1,8 +1,11 @@
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
+import { mkdirSync } from "node:fs";
+import { dirname } from "node:path";
 import { seedAdmin } from "../lib/db/seed";
 
 const dbPath = process.env.DATABASE_PATH || "data/app.db";
+mkdirSync(dirname(dbPath), { recursive: true });
 const sqlite = new Database(dbPath);
 sqlite.pragma("foreign_keys = ON");
 const res = seedAdmin(drizzle(sqlite));

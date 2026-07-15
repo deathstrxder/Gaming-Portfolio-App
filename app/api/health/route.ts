@@ -1,3 +1,4 @@
+import { count } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 
@@ -5,6 +6,6 @@ import { users } from "@/lib/db/schema";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const rows = db.select().from(users).all();
-  return Response.json({ ok: true, users: rows.length });
+  const [{ value }] = db.select({ value: count() }).from(users).all();
+  return Response.json({ ok: true, users: value });
 }
