@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { isPasswordValid } from "@/lib/auth/password";
@@ -24,6 +25,7 @@ async function postJson(url: string, body: unknown) {
 
 export function AuthPanel() {
   const [step, setStep] = useState<Step>("loading");
+  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -83,8 +85,7 @@ export function AuthPanel() {
     if (!ok) return fail("That code is incorrect or expired.");
     setBusy(false);
     if (data.username) {
-      setDisplayName(data.username);
-      setStep("done");
+      router.push("/subscribe");
     } else {
       setStep("username");
     }
@@ -94,11 +95,10 @@ export function AuthPanel() {
     e.preventDefault();
     setError(null);
     setBusy(true);
-    const { ok, status, data } = await postJson("/api/auth/username", { username });
+    const { ok, status } = await postJson("/api/auth/username", { username });
     if (!ok) return fail(status === 409 ? "That username is taken." : "Usernames are 3–20 letters, numbers, or underscores.");
-    setDisplayName(data.username);
     setBusy(false);
-    setStep("done");
+    router.push("/subscribe");
   }
 
   async function handleLogin(e: React.FormEvent) {
@@ -115,8 +115,7 @@ export function AuthPanel() {
     }
     setBusy(false);
     if (data.username) {
-      setDisplayName(data.username);
-      setStep("done");
+      router.push("/subscribe");
     } else {
       setStep("username");
     }
@@ -216,7 +215,7 @@ export function AuthPanel() {
             <h3 className="font-display text-2xl uppercase tracking-[0.15em] text-ink text-glow-blue">
               Signed in as {displayName}
             </h3>
-            <p className="font-body text-muted">You&apos;re all set. Your membership area is coming next.</p>
+            <Button type="button" onClick={() => router.push("/subscribe")}>Go to your membership</Button>
             <Button type="button" variant="ghost" onClick={handleLogout}>Log out</Button>
           </div>
         ) : null}
