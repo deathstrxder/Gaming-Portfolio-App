@@ -4,6 +4,8 @@ import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import * as schema from "./schema";
 
+export type AppDb = BetterSQLite3Database<typeof schema>;
+
 const dbPath = process.env.DATABASE_PATH || "data/app.db";
 
 function createDb(): BetterSQLite3Database<typeof schema> {
