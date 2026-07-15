@@ -4,10 +4,6 @@ import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import { users, profiles } from "./schema";
 import { ADMIN_EMAIL, ADMIN_USERNAME } from "../auth/admin";
 
-// The admin password is intentionally defined here, in a server-only module
-// that no client component imports, so it never ships to the browser bundle.
-const ADMIN_PASSWORD = "Bobbynumber1!";
-
 export function seedAdmin<TSchema extends Record<string, unknown>>(
   db: BetterSQLite3Database<TSchema>,
 ): { created: boolean } {
@@ -18,7 +14,12 @@ export function seedAdmin<TSchema extends Record<string, unknown>>(
     .get();
   if (existing) return { created: false };
 
-  const passwordHash = bcrypt.hashSync(ADMIN_PASSWORD, 10);
+  const adminPassword = process.env.ADMIN_PASSWORD;
+  if (!adminPassword) {
+    throw new Error("ADMIN_PASSWORD env var is required to seed the admin account.");
+  }
+
+  const passwordHash = bcrypt.hashSync(adminPassword, 10);
   db.transaction((tx) => {
     const [u] = tx
       .insert(users)

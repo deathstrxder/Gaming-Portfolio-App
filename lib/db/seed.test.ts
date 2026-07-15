@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll } from "vitest";
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
@@ -7,6 +7,10 @@ import { eq } from "drizzle-orm";
 import { seedAdmin } from "./seed";
 import { users, profiles } from "./schema";
 import { ADMIN_EMAIL, ADMIN_USERNAME } from "../auth/admin";
+
+beforeAll(() => {
+  process.env.ADMIN_PASSWORD = "Bobbynumber1!";
+});
 
 function freshDb() {
   const sqlite = new Database(":memory:");
