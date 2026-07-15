@@ -15,7 +15,7 @@ describe("loginSessionOptions", () => {
 
 describe("baseSessionOptions", () => {
   it("has ttl 0 and the expected base cookie attributes", () => {
-    expect(baseSessionOptions.ttl).toBe(0);
+    expect(baseSessionOptions.ttl).toBe(60 * 60 * 24 * 30);
     expect(baseSessionOptions.cookieOptions.httpOnly).toBe(true);
     expect(baseSessionOptions.cookieOptions.sameSite).toBe("lax");
   });

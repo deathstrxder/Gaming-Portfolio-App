@@ -8,6 +8,13 @@
       "when": 1784144836253,
       "tag": "0000_true_captain_universe",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1784154852853,
+      "tag": "0001_lowly_cassandra_nova",
+      "breakpoints": true
     }
   ]
 }

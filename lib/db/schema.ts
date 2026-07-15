@@ -39,6 +39,7 @@ export const verificationCodes = sqliteTable("verification_codes", {
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
   code: text("code").notNull(),
+  attempts: integer("attempts").notNull().default(0),
   expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
   consumed: integer("consumed", { mode: "boolean" }).notNull().default(false),
 });

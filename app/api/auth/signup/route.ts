@@ -6,7 +6,7 @@ import { isPasswordValid } from "@/lib/auth/password";
 
 export const dynamic = "force-dynamic";
 
-const bodySchema = z.object({ email: z.string().email(), password: z.string() });
+const bodySchema = z.object({ email: z.string().email(), password: z.string().max(200) });
 
 export async function POST(request: Request) {
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));

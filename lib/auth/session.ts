@@ -12,10 +12,11 @@ const REMEMBER_MAX_AGE = 60 * 60 * 24 * 30; // 30 days, in seconds
 export const baseSessionOptions: SessionOptions = {
   password: process.env.IRON_SESSION_PASSWORD ?? "",
   cookieName: "eddie_session",
-  // ttl 0 = no seal expiry, so the cookie's lifetime is governed SOLELY by
-  // cookieOptions.maxAge below. (The iron-session default ttl of 14 days would
-  // otherwise silently expire a 30-day "remember me" seal early.)
-  ttl: 0,
+  // ttl caps how long the encrypted seal stays cryptographically valid,
+  // independent of the cookie's own lifetime (governed by cookieOptions.maxAge
+  // below). Set to the longest lifetime we ever hand out (30-day "remember me")
+  // so the seal never expires before a legitimate persistent cookie would.
+  ttl: REMEMBER_MAX_AGE,
   cookieOptions: {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",

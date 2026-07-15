@@ -57,4 +57,12 @@ describe("issue/verify", () => {
     expect(verifyEmailCode(db, userId, first)).toBe(false);
     expect(verifyEmailCode(db, userId, second)).toBe(true);
   });
+
+  it("locks the code after too many wrong attempts", () => {
+    const { db, userId } = freshDb();
+    const code = issueCode(db, userId);
+    for (let i = 0; i < 5; i++) expect(verifyEmailCode(db, userId, "000001")).toBe(false);
+    // the code is now invalidated even though the correct code is supplied
+    expect(verifyEmailCode(db, userId, code)).toBe(false);
+  });
 });
