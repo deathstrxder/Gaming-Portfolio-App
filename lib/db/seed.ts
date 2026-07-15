@@ -19,13 +19,15 @@ export function seedAdmin(
   if (existing) return { created: false };
 
   const passwordHash = bcrypt.hashSync(ADMIN_PASSWORD, 10);
-  const [u] = db
-    .insert(users)
-    .values({ email: ADMIN_EMAIL, passwordHash, emailVerified: true })
-    .returning()
-    .all();
-  db.insert(profiles)
-    .values({ userId: u.id, username: ADMIN_USERNAME, role: "admin", location: "—" })
-    .run();
+  db.transaction((tx) => {
+    const [u] = tx
+      .insert(users)
+      .values({ email: ADMIN_EMAIL, passwordHash, emailVerified: true })
+      .returning()
+      .all();
+    tx.insert(profiles)
+      .values({ userId: u.id, username: ADMIN_USERNAME, role: "admin", location: "—" })
+      .run();
+  });
   return { created: true };
 }
