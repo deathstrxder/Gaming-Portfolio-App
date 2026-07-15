@@ -14,6 +14,8 @@ import {
   setBirthday,
   deleteUser,
   recordPaymentAttempt,
+  listAllUsers,
+  modifySubscription,
 } from "./users";
 
 function freshDb() {
@@ -90,5 +92,34 @@ describe("account services", () => {
     deleteUser(db, a.userId);
     expect(getUserById(db, a.userId)).toBeUndefined();
     expect(getProfile(db, a.userId)).toBeUndefined();
+  });
+});
+
+describe("admin services", () => {
+  it("listAllUsers returns joined rows without a password field", () => {
+    const db = freshDb();
+    const a = createUnverifiedUser(db, "a@b.com", "Abc1!x");
+    if (!a.ok) throw new Error("setup");
+    setUsername(db, a.userId, "neo");
+    const rows = listAllUsers(db);
+    expect(rows.length).toBe(1);
+    expect(rows[0].email).toBe("a@b.com");
+    expect(rows[0].username).toBe("neo");
+    expect("passwordHash" in rows[0]).toBe(false);
+  });
+
+  it("modifySubscription add → active with a future expiry; remove → none", () => {
+    const db = freshDb();
+    const a = createUnverifiedUser(db, "a@b.com", "Abc1!x");
+    if (!a.ok) throw new Error("setup");
+    setUsername(db, a.userId, "neo");
+    modifySubscription(db, a.userId, "add", 2);
+    let p = getProfile(db, a.userId)!;
+    expect(p.subscriptionStatus).toBe("active");
+    expect(p.subscriptionExpiresAt!.getTime()).toBeGreaterThan(Date.now());
+    modifySubscription(db, a.userId, "remove");
+    p = getProfile(db, a.userId)!;
+    expect(p.subscriptionStatus).toBe("none");
+    expect(p.subscriptionExpiresAt).toBeNull();
   });
 });

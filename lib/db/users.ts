@@ -1,5 +1,5 @@
 import bcrypt from "bcryptjs";
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import type { AppDb } from "./index";
 import { users, profiles } from "./schema";
 
@@ -83,6 +83,67 @@ export function recordPaymentAttempt(
 ): void {
   db.update(profiles)
     .set({ paymentAttempted: true, paymentLast4: last4, paymentBrand: brand })
+    .where(eq(profiles.userId, userId))
+    .run();
+}
+
+export function listAllUsers(db: AppDb) {
+  return db
+    .select({
+      userId: users.id,
+      email: users.email,
+      emailVerified: users.emailVerified,
+      createdAt: users.createdAt,
+      username: profiles.username,
+      location: profiles.location,
+      birthday: profiles.birthday,
+      subscriptionStatus: profiles.subscriptionStatus,
+      subscriptionExpiresAt: profiles.subscriptionExpiresAt,
+      paymentLast4: profiles.paymentLast4,
+      paymentBrand: profiles.paymentBrand,
+      paymentAttempted: profiles.paymentAttempted,
+      role: profiles.role,
+    })
+    .from(users)
+    .leftJoin(profiles, eq(profiles.userId, users.id))
+    .orderBy(desc(users.id))
+    .all();
+}
+
+const MONTH_MS = 30 * 24 * 60 * 60 * 1000;
+export type SubscriptionAction = "add" | "extend" | "shorten" | "remove";
+
+export function modifySubscription(
+  db: AppDb,
+  userId: number,
+  action: SubscriptionAction,
+  months = 1,
+): void {
+  const p = getProfile(db, userId);
+  if (!p) return;
+  const now = Date.now();
+  let status: "none" | "active" | "canceled" = p.subscriptionStatus;
+  let expires: number | null = p.subscriptionExpiresAt ? p.subscriptionExpiresAt.getTime() : null;
+
+  if (action === "add") {
+    status = "active";
+    expires = now + months * MONTH_MS;
+  } else if (action === "extend") {
+    status = "active";
+    expires = (expires && expires > now ? expires : now) + months * MONTH_MS;
+  } else if (action === "shorten") {
+    expires = (expires ?? now) - months * MONTH_MS;
+    if (expires <= now) {
+      expires = null;
+      status = "canceled";
+    }
+  } else {
+    status = "none";
+    expires = null;
+  }
+
+  db.update(profiles)
+    .set({ subscriptionStatus: status, subscriptionExpiresAt: expires ? new Date(expires) : null })
     .where(eq(profiles.userId, userId))
     .run();
 }
