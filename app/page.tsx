@@ -7,6 +7,7 @@ import { GameSection } from "@/components/site/GameSection";
 import { Timeline } from "@/components/site/Timeline";
 import { Reveal } from "@/components/site/Reveal";
 import { NavBar } from "@/components/site/NavBar";
+import { SupportMe } from "@/components/site/SupportMe";
 
 /** Maps each game-showcase group to the nav anchor id on its section. */
 const GAME_SECTION_ANCHORS: Record<string, string> = {
@@ -45,6 +46,9 @@ export default function Home() {
           <Timeline />
         </Reveal>
       </div>
+
+      <Divider />
+      <SupportMe />
 
       {/* Footer sits at the very bottom, where there isn't enough scroll room to
           fully reveal a scroll-linked element, so it stays statically visible. */}
