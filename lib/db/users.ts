@@ -44,3 +44,45 @@ export function setUsername(
   }
   return { ok: true };
 }
+
+export function getUserById(db: AppDb, userId: number) {
+  return db.select().from(users).where(eq(users.id, userId)).get();
+}
+
+export function changePassword(
+  db: AppDb,
+  userId: number,
+  currentPassword: string,
+  newPassword: string,
+): { ok: true } | { ok: false; error: "wrong_password" } {
+  const u = getUserById(db, userId);
+  if (!u || !bcrypt.compareSync(currentPassword, u.passwordHash)) {
+    return { ok: false, error: "wrong_password" };
+  }
+  db.update(users)
+    .set({ passwordHash: bcrypt.hashSync(newPassword, 10) })
+    .where(eq(users.id, userId))
+    .run();
+  return { ok: true };
+}
+
+export function setBirthday(db: AppDb, userId: number, birthday: string): void {
+  db.update(profiles).set({ birthday }).where(eq(profiles.userId, userId)).run();
+}
+
+export function deleteUser(db: AppDb, userId: number): void {
+  // profiles/verification_codes cascade; events.user_id is set null (FK rules).
+  db.delete(users).where(eq(users.id, userId)).run();
+}
+
+export function recordPaymentAttempt(
+  db: AppDb,
+  userId: number,
+  last4: string | null,
+  brand: string,
+): void {
+  db.update(profiles)
+    .set({ paymentAttempted: true, paymentLast4: last4, paymentBrand: brand })
+    .where(eq(profiles.userId, userId))
+    .run();
+}
