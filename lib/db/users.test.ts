@@ -18,6 +18,8 @@ import {
   recordPaymentAttempt,
   listAllUsers,
   modifySubscription,
+  resolveGoogleUser,
+  setPassword,
 } from "./users";
 
 function freshDb() {
@@ -116,6 +118,46 @@ describe("account services", () => {
     deleteUser(db, a.userId);
     expect(getUserById(db, a.userId)).toBeUndefined();
     expect(getProfile(db, a.userId)).toBeUndefined();
+  });
+});
+
+describe("resolveGoogleUser", () => {
+  it("creates a new passwordless, verified user when nothing matches", () => {
+    const db = freshDb();
+    const res = resolveGoogleUser(db, { email: "new@x.com", googleId: "g-new" });
+    expect(res.outcome).toBe("created");
+    const u = getUserById(db, res.userId);
+    expect(u?.email).toBe("new@x.com");
+    expect(u?.googleId).toBe("g-new");
+    expect(u?.emailVerified).toBe(true);
+    expect(u?.passwordHash).toBeNull();
+  });
+
+  it("links googleId onto an existing password account with the same email", () => {
+    const db = freshDb();
+    const created = createUnverifiedUser(db, "existing@x.com", "Abc1!xy");
+    if (!created.ok) throw new Error("setup failed");
+    const res = resolveGoogleUser(db, { email: "existing@x.com", googleId: "g-link" });
+    expect(res.outcome).toBe("linked");
+    expect(res.userId).toBe(created.userId);
+    expect(getUserById(db, created.userId)?.googleId).toBe("g-link");
+  });
+
+  it("returns the existing user when the googleId is already known", () => {
+    const db = freshDb();
+    const first = resolveGoogleUser(db, { email: "again@x.com", googleId: "g-same" });
+    const second = resolveGoogleUser(db, { email: "again@x.com", googleId: "g-same" });
+    expect(second.outcome).toBe("existing");
+    expect(second.userId).toBe(first.userId);
+  });
+});
+
+describe("setPassword", () => {
+  it("sets a usable password on a previously passwordless account", () => {
+    const db = freshDb();
+    const { userId } = resolveGoogleUser(db, { email: "g@x.com", googleId: "g-1" });
+    setPassword(db, userId, "Abc1!xyz");
+    expect(verifyCredentials(db, "g@x.com", "Abc1!xyz")).not.toBeNull();
   });
 });
 

@@ -7,6 +7,52 @@ export function getUserByEmail(db: AppDb, email: string) {
   return db.select().from(users).where(eq(users.email, email)).get();
 }
 
+export function getUserByGoogleId(db: AppDb, googleId: string) {
+  return db.select().from(users).where(eq(users.googleId, googleId)).get();
+}
+
+export function linkGoogleId(db: AppDb, userId: number, googleId: string): void {
+  db.update(users).set({ googleId }).where(eq(users.id, userId)).run();
+}
+
+export function createUserFromGoogle(
+  db: AppDb,
+  params: { email: string; googleId: string },
+): { userId: number } {
+  const [u] = db
+    .insert(users)
+    .values({ email: params.email, googleId: params.googleId, emailVerified: true })
+    .returning()
+    .all();
+  return { userId: u.id };
+}
+
+export type GoogleOutcome = "existing" | "linked" | "created";
+
+export function resolveGoogleUser(
+  db: AppDb,
+  params: { email: string; googleId: string },
+): { userId: number; outcome: GoogleOutcome } {
+  const byGoogle = getUserByGoogleId(db, params.googleId);
+  if (byGoogle) return { userId: byGoogle.id, outcome: "existing" };
+
+  const byEmail = getUserByEmail(db, params.email);
+  if (byEmail) {
+    linkGoogleId(db, byEmail.id, params.googleId);
+    return { userId: byEmail.id, outcome: "linked" };
+  }
+
+  const created = createUserFromGoogle(db, params);
+  return { userId: created.userId, outcome: "created" };
+}
+
+export function setPassword(db: AppDb, userId: number, newPassword: string): void {
+  db.update(users)
+    .set({ passwordHash: bcrypt.hashSync(newPassword, 10) })
+    .where(eq(users.id, userId))
+    .run();
+}
+
 export function createUnverifiedUser(
   db: AppDb,
   email: string,
