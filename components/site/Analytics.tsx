@@ -24,6 +24,10 @@ export function Analytics() {
   const pathname = usePathname();
 
   useEffect(() => {
+    // Don't measure the admin's own dashboard usage — it would pollute the
+    // "most pressed button" / "top pages" analytics with operator activity.
+    if (pathname.startsWith("/admin")) return;
+
     track("page_view");
 
     function onClick(e: MouseEvent) {
