@@ -20,7 +20,7 @@ export function createUnverifiedUser(
 
 export function verifyCredentials(db: AppDb, email: string, password: string) {
   const u = getUserByEmail(db, email);
-  if (!u) return null;
+  if (!u || u.passwordHash === null) return null;
   return bcrypt.compareSync(password, u.passwordHash) ? u : null;
 }
 
@@ -56,7 +56,7 @@ export function changePassword(
   newPassword: string,
 ): { ok: true } | { ok: false; error: "wrong_password" } {
   const u = getUserById(db, userId);
-  if (!u || !bcrypt.compareSync(currentPassword, u.passwordHash)) {
+  if (!u || u.passwordHash === null || !bcrypt.compareSync(currentPassword, u.passwordHash)) {
     return { ok: false, error: "wrong_password" };
   }
   db.update(users)

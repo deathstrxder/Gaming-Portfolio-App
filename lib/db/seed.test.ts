@@ -34,7 +34,7 @@ describe("seedAdmin", () => {
     expect(u!.emailVerified).toBe(true);
     // Password is hashed, not stored in plaintext.
     expect(u!.passwordHash).not.toBe(TEST_ADMIN_PASSWORD);
-    expect(bcrypt.compareSync(TEST_ADMIN_PASSWORD, u!.passwordHash)).toBe(true);
+    expect(bcrypt.compareSync(TEST_ADMIN_PASSWORD, u!.passwordHash!)).toBe(true);
 
     const p = db.select().from(profiles).where(eq(profiles.userId, u!.id)).get();
     expect(p!.username).toBe(ADMIN_USERNAME);

@@ -15,6 +15,20 @@
       "when": 1784154852853,
       "tag": "0001_lowly_cassandra_nova",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1784241311979,
+      "tag": "0002_bitter_may_parker",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1784241327388,
+      "tag": "0003_lying_sunspot",
+      "breakpoints": true
     }
   ]
 }

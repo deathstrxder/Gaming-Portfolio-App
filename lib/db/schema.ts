@@ -3,7 +3,8 @@ import { sqliteTable, integer, text } from "drizzle-orm/sqlite-core";
 export const users = sqliteTable("users", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   email: text("email").notNull().unique(),
-  passwordHash: text("password_hash").notNull(),
+  passwordHash: text("password_hash"),
+  googleId: text("google_id").unique(),
   emailVerified: integer("email_verified", { mode: "boolean" })
     .notNull()
     .default(false),

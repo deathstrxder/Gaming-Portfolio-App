@@ -3,7 +3,9 @@ import Database from "better-sqlite3";
 import bcrypt from "bcryptjs";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
+import { eq } from "drizzle-orm";
 import * as schema from "./schema";
+import { users } from "./schema";
 import {
   createUnverifiedUser,
   verifyCredentials,
@@ -46,6 +48,28 @@ describe("verifyCredentials", () => {
   });
 });
 
+describe("credential guards for passwordless (Google-only) users", () => {
+  it("verifyCredentials returns null when the account has no password", () => {
+    const db = freshDb();
+    db.insert(users).values({ email: "g@x.com", googleId: "google-1", emailVerified: true }).run();
+    expect(verifyCredentials(db, "g@x.com", "anything")).toBeNull();
+  });
+
+  it("changePassword refuses when the account has no existing password", () => {
+    const db = freshDb();
+    const [u] = db
+      .insert(users)
+      .values({ email: "g@x.com", googleId: "google-1", emailVerified: true })
+      .returning()
+      .all();
+    const res = changePassword(db, u.id, "whatever", "Abc1!xyz");
+    expect(res).toEqual({ ok: false, error: "wrong_password" });
+    // and the hash is still null (no password was set)
+    const after = db.select().from(users).where(eq(users.id, u.id)).get();
+    expect(after?.passwordHash).toBeNull();
+  });
+});
+
 describe("setUsername", () => {
   it("creates a profile, then rejects a taken username", () => {
     const db = freshDb();
@@ -67,7 +91,7 @@ describe("account services", () => {
     expect(changePassword(db, a.userId, "wrong", "New1!pass")).toEqual({ ok: false, error: "wrong_password" });
     expect(changePassword(db, a.userId, "Abc1!x", "New1!pass")).toEqual({ ok: true });
     const u = getUserById(db, a.userId)!;
-    expect(bcrypt.compareSync("New1!pass", u.passwordHash)).toBe(true);
+    expect(bcrypt.compareSync("New1!pass", u.passwordHash!)).toBe(true);
   });
 
   it("setBirthday and recordPaymentAttempt update the profile", () => {
