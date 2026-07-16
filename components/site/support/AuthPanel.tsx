@@ -23,6 +23,21 @@ async function postJson(url: string, body: unknown) {
   return { ok: res.ok, status: res.status, data };
 }
 
+function GoogleAuthOptions() {
+  return (
+    <>
+      <div className="flex items-center gap-3">
+        <span className="h-px flex-1 bg-white/10" />
+        <span className="font-body text-xs uppercase tracking-[0.2em] text-muted">or</span>
+        <span className="h-px flex-1 bg-white/10" />
+      </div>
+      <Button asChild variant="ghost">
+        <a href="/api/auth/google">Continue with Google</a>
+      </Button>
+    </>
+  );
+}
+
 export function AuthPanel() {
   const [step, setStep] = useState<Step>("loading");
   const router = useRouter();
@@ -58,6 +73,16 @@ export function AuthPanel() {
         }
       })
       .catch(() => setStep("signup"));
+  }, []);
+
+  useEffect(() => {
+    Promise.resolve().then(() => {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("error") === "oauth") {
+        setError("Google sign-in failed. Please try again.");
+        window.history.replaceState({}, "", window.location.pathname);
+      }
+    });
   }, []);
 
   function fail(msg: string) {
@@ -156,9 +181,7 @@ export function AuthPanel() {
             <input className={inputClass} type="password" placeholder="Confirm password" value={confirm}
               onChange={(e) => setConfirm(e.target.value)} required autoComplete="new-password" />
             <Button type="submit" disabled={busy}>{busy ? "Creating…" : "Sign up"}</Button>
-            <Button type="button" variant="ghost" disabled title="Google sign-up is coming soon">
-              Continue with Google — coming soon
-            </Button>
+            <GoogleAuthOptions />
             <button type="button" className="font-body text-sm text-muted underline underline-offset-4 hover:text-neon-blue"
               onClick={() => { setError(null); setStep("login"); }}>
               Already have an account? Login instead!
@@ -178,9 +201,7 @@ export function AuthPanel() {
               Remember me
             </label>
             <Button type="submit" disabled={busy}>{busy ? "Logging in…" : "Log in"}</Button>
-            <Button type="button" variant="ghost" disabled title="Google sign-in is coming soon">
-              Continue with Google — coming soon
-            </Button>
+            <GoogleAuthOptions />
             <button type="button" className="font-body text-sm text-muted underline underline-offset-4 hover:text-neon-blue"
               onClick={() => { setError(null); setStep("signup"); }}>
               Need an account? Sign up instead!
