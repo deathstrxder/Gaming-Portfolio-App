@@ -41,6 +41,7 @@ export function AuthPanel() {
   const [code, setCode] = useState("");
   const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState<string | null>(null);
+  const [role, setRole] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/auth/me")
@@ -48,6 +49,7 @@ export function AuthPanel() {
       .then((d) => {
         if (d.user && d.user.username) {
           setDisplayName(d.user.username);
+          setRole(d.user.role);
           setStep("done");
         } else if (d.user) {
           setStep("username");
@@ -115,7 +117,7 @@ export function AuthPanel() {
     }
     setBusy(false);
     if (data.username) {
-      router.push("/subscribe");
+      router.push(data.role === "admin" ? "/admin" : "/subscribe");
     } else {
       setStep("username");
     }
@@ -157,7 +159,7 @@ export function AuthPanel() {
             <Button type="button" variant="ghost" disabled title="Google sign-up is coming soon">
               Continue with Google — coming soon
             </Button>
-            <button type="button" className="font-body text-sm text-muted underline-offset-4 hover:text-neon-blue hover:underline"
+            <button type="button" className="font-body text-sm text-muted underline underline-offset-4 hover:text-neon-blue"
               onClick={() => { setError(null); setStep("login"); }}>
               Already have an account? Login instead!
             </button>
@@ -179,7 +181,7 @@ export function AuthPanel() {
             <Button type="button" variant="ghost" disabled title="Google sign-in is coming soon">
               Continue with Google — coming soon
             </Button>
-            <button type="button" className="font-body text-sm text-muted underline-offset-4 hover:text-neon-blue hover:underline"
+            <button type="button" className="font-body text-sm text-muted underline underline-offset-4 hover:text-neon-blue"
               onClick={() => { setError(null); setStep("signup"); }}>
               Need an account? Sign up instead!
             </button>
@@ -215,7 +217,9 @@ export function AuthPanel() {
             <h3 className="font-display text-2xl uppercase tracking-[0.15em] text-ink text-glow-blue">
               Signed in as {displayName}
             </h3>
-            <Button type="button" onClick={() => router.push("/subscribe")}>Go to your membership</Button>
+            <Button type="button" onClick={() => router.push(role === "admin" ? "/admin" : "/subscribe")}>
+              {role === "admin" ? "Go to your dashboard" : "Go to your membership"}
+            </Button>
             <Button type="button" variant="ghost" onClick={handleLogout}>Log out</Button>
           </div>
         ) : null}
