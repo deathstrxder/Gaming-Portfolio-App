@@ -33,7 +33,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-export function AccountScreen() {
+export function AccountScreen({ hasPassword }: { hasPassword: boolean }) {
   const router = useRouter();
 
   const [username, setUsername] = useState("");
@@ -57,8 +57,19 @@ export function AccountScreen() {
   async function savePassword(e: React.FormEvent) {
     e.preventDefault();
     if (!isPasswordValid(next)) return setPwMsg("New password does not meet the requirements.");
-    const { ok, status } = await postJson("/api/account/password", { currentPassword: current, newPassword: next });
-    setPwMsg(ok ? "Password updated." : status === 403 ? "Current password is incorrect." : "Could not update password.");
+    const body = hasPassword
+      ? { currentPassword: current, newPassword: next }
+      : { newPassword: next };
+    const { ok, status } = await postJson("/api/account/password", body);
+    setPwMsg(
+      ok
+        ? hasPassword
+          ? "Password updated."
+          : "Password set. You can now also log in with email."
+        : status === 403
+          ? "Current password is incorrect."
+          : "Could not update password.",
+    );
     if (ok) { setCurrent(""); setNext(""); }
   }
 
@@ -86,13 +97,19 @@ export function AccountScreen() {
           </form>
         </Section>
 
-        <Section title="Change password">
+        <Section title={hasPassword ? "Change password" : "Set a password"}>
           <form onSubmit={savePassword} className="flex flex-col gap-3">
-            <input className={inputClass} type="password" placeholder="Current password" value={current} onChange={(e) => setCurrent(e.target.value)} required autoComplete="current-password" />
+            {hasPassword ? (
+              <input className={inputClass} type="password" placeholder="Current password" value={current} onChange={(e) => setCurrent(e.target.value)} required autoComplete="current-password" />
+            ) : (
+              <p className="font-body text-sm text-muted">
+                You signed in with Google. Set a password to also enable email login.
+              </p>
+            )}
             <input className={inputClass} type="password" placeholder="New password" value={next} onChange={(e) => setNext(e.target.value)} required autoComplete="new-password" />
             <PasswordChecklist password={next} />
             {pwMsg ? <p className="font-body text-sm text-muted">{pwMsg}</p> : null}
-            <Button type="submit" size="sm">Update password</Button>
+            <Button type="submit" size="sm">{hasPassword ? "Update password" : "Set password"}</Button>
           </form>
         </Section>
 
