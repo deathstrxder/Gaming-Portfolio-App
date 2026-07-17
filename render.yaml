@@ -1,40 +1,38 @@
-# Render Blueprint — deploys this Next.js server app + its SQLite database.
+# Render Blueprint — deploys this Next.js server app on Render's FREE tier.
 # Spec: https://render.com/docs/blueprint-spec
 #
-# The service is deliberately a SINGLE web instance: better-sqlite3 is a
-# single-writer file database, so it must not be scaled to multiple replicas.
-# A persistent disk holds the SQLite file so data survives deploys/restarts.
+# IMPORTANT: the free tier has NO persistent disk, so the SQLite database is
+# EPHEMERAL. It is rebuilt from migrations on every start and is wiped whenever
+# the free service redeploys or sleeps (after ~15 min idle). The admin account
+# is re-seeded automatically on each start; user signups/subscriptions do NOT
+# survive a restart. This is a live-demo deployment, not durable storage.
+# To make data durable, see the paid-upgrade note at the bottom of this file.
 services:
   - type: web
     name: gaming-portfolio
     runtime: node
-    plan: starter            # paid: the free tier has no persistent disk and spins down
-    region: oregon           # change if you prefer another region
-    branch: deploy/render    # smoke-test here first; switch to `master` once verified
+    plan: free
+    region: oregon
+    branch: deploy/render    # smoke-test here; switch to `master` once verified
     autoDeploy: true
 
     # --include=dev is REQUIRED: tsx / drizzle-kit / typescript are devDependencies,
     # and NODE_ENV=production would otherwise make `npm ci` omit them, breaking both
-    # `next build` and the pre-deploy migrate/seed.
+    # `next build` and the migrate/seed step below.
     buildCommand: npm ci --include=dev && npm run build
 
-    # Runs against the mounted disk DB before the new version goes live.
-    # migrate is safe on populated data (FKs off during migration); seed is idempotent.
-    preDeployCommand: npm run db:migrate && npm run db:seed
+    # The free tier has no Pre-Deploy hook, and the DB is ephemeral, so migrate +
+    # seed run on EVERY start (both idempotent): a fresh instance rebuilds the
+    # schema and re-creates the admin, then the server starts.
+    startCommand: npm run db:migrate && npm run db:seed && npm run start
 
-    startCommand: npm run start
     healthCheckPath: /api/health
-
-    disk:
-      name: sqlite-data
-      mountPath: /var/data
-      sizeGB: 1
 
     envVars:
       - key: NODE_ENV
         value: production
       - key: DATABASE_PATH
-        value: /var/data/app.db     # the SQLite file lives on the persistent disk
+        value: /tmp/app.db          # ephemeral; /tmp is always writable, wiped on restart
 
       # ---- Secrets — set these in the Render dashboard, NOT in this file ----
       - key: APP_BASE_URL           # e.g. https://gaming-portfolio.onrender.com (no trailing slash)
@@ -43,7 +41,16 @@ services:
         sync: false
       - key: ADMIN_PASSWORD         # fresh (rotated) admin password
         sync: false
-      - key: GOOGLE_CLIENT_ID       # leave unset until you finish Google Cloud setup;
+      - key: GOOGLE_CLIENT_ID       # leave unset until Google Cloud is set up;
         sync: false                 # the "Continue with Google" button stays hidden until it's set
       - key: GOOGLE_CLIENT_SECRET
         sync: false
+
+# ---- Making data durable later (paid) ----
+# Change `plan: free` to `plan: starter`, then:
+#   - move migrate/seed out of startCommand into a pre-deploy hook:
+#       preDeployCommand: npm run db:migrate && npm run db:seed
+#       startCommand: npm run start
+#   - add a persistent disk and point the DB at it:
+#       disk: { name: sqlite-data, mountPath: /var/data, sizeGB: 1 }
+#       envVars: DATABASE_PATH=/var/data/app.db
