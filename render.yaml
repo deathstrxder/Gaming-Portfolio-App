@@ -1,0 +1,49 @@
+# Render Blueprint — deploys this Next.js server app + its SQLite database.
+# Spec: https://render.com/docs/blueprint-spec
+#
+# The service is deliberately a SINGLE web instance: better-sqlite3 is a
+# single-writer file database, so it must not be scaled to multiple replicas.
+# A persistent disk holds the SQLite file so data survives deploys/restarts.
+services:
+  - type: web
+    name: gaming-portfolio
+    runtime: node
+    plan: starter            # paid: the free tier has no persistent disk and spins down
+    region: oregon           # change if you prefer another region
+    branch: deploy/render    # smoke-test here first; switch to `master` once verified
+    autoDeploy: true
+
+    # --include=dev is REQUIRED: tsx / drizzle-kit / typescript are devDependencies,
+    # and NODE_ENV=production would otherwise make `npm ci` omit them, breaking both
+    # `next build` and the pre-deploy migrate/seed.
+    buildCommand: npm ci --include=dev && npm run build
+
+    # Runs against the mounted disk DB before the new version goes live.
+    # migrate is safe on populated data (FKs off during migration); seed is idempotent.
+    preDeployCommand: npm run db:migrate && npm run db:seed
+
+    startCommand: npm run start
+    healthCheckPath: /api/health
+
+    disk:
+      name: sqlite-data
+      mountPath: /var/data
+      sizeGB: 1
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_PATH
+        value: /var/data/app.db     # the SQLite file lives on the persistent disk
+
+      # ---- Secrets — set these in the Render dashboard, NOT in this file ----
+      - key: APP_BASE_URL           # e.g. https://gaming-portfolio.onrender.com (no trailing slash)
+        sync: false                 # used to build the Google OAuth redirect URI
+      - key: IRON_SESSION_PASSWORD  # fresh value, >= 32 chars
+        sync: false
+      - key: ADMIN_PASSWORD         # fresh (rotated) admin password
+        sync: false
+      - key: GOOGLE_CLIENT_ID       # leave unset until you finish Google Cloud setup;
+        sync: false                 # the "Continue with Google" button stays hidden until it's set
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
