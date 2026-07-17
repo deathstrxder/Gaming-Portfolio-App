@@ -15,7 +15,13 @@ const TEMP_COOKIE_OPTS = {
 export async function GET() {
   const state = generateState();
   const codeVerifier = generateCodeVerifier();
-  const url = getGoogleClient().createAuthorizationURL(state, codeVerifier, GOOGLE_SCOPES);
+
+  let url: URL;
+  try {
+    url = getGoogleClient().createAuthorizationURL(state, codeVerifier, GOOGLE_SCOPES);
+  } catch {
+    return new Response(null, { status: 302, headers: { Location: "/?error=oauth#support" } });
+  }
 
   const jar = await cookies();
   jar.set("google_oauth_state", state, TEMP_COOKIE_OPTS);

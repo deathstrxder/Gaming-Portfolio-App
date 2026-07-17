@@ -27,9 +27,9 @@ function GoogleAuthOptions() {
   return (
     <>
       <div className="flex items-center gap-3">
-        <span className="h-px flex-1 bg-white/10" />
+        <span className="h-px flex-1 bg-white/10" aria-hidden="true" />
         <span className="font-body text-xs uppercase tracking-[0.2em] text-muted">or</span>
-        <span className="h-px flex-1 bg-white/10" />
+        <span className="h-px flex-1 bg-white/10" aria-hidden="true" />
       </div>
       <Button asChild variant="ghost">
         <a href="/api/auth/google">Continue with Google</a>

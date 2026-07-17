@@ -31,7 +31,7 @@ export async function GET(request: Request) {
   jar.delete("google_oauth_code_verifier");
 
   if (!code || !state || !storedState || !codeVerifier || state !== storedState) {
-    return redirectTo("/?error=oauth");
+    return redirectTo("/?error=oauth#support");
   }
 
   let claims: GoogleClaims;
@@ -39,22 +39,26 @@ export async function GET(request: Request) {
     const tokens = await getGoogleClient().validateAuthorizationCode(code, codeVerifier);
     claims = decodeIdToken(tokens.idToken()) as GoogleClaims;
   } catch {
-    return redirectTo("/?error=oauth");
+    return redirectTo("/?error=oauth#support");
   }
 
   if (!claims.email || claims.email_verified === false) {
-    return redirectTo("/?error=oauth");
+    return redirectTo("/?error=oauth#support");
   }
 
-  const email = claims.email.toLowerCase();
-  const { userId } = resolveGoogleUser(db, { email, googleId: claims.sub });
+  try {
+    const email = claims.email.toLowerCase();
+    const { userId } = resolveGoogleUser(db, { email, googleId: claims.sub });
 
-  const profile = getProfile(db, userId);
-  const session = await getSession(loginSessionOptions(true)); // B1: 30-day persistent
-  session.userId = userId;
-  session.role = profile?.role ?? "user";
-  session.username = profile?.username;
-  await session.save();
+    const profile = getProfile(db, userId);
+    const session = await getSession(loginSessionOptions(true)); // B1: 30-day persistent
+    session.userId = userId;
+    session.role = profile?.role ?? "user";
+    session.username = profile?.username;
+    await session.save();
 
-  return redirectTo(profile?.username ? "/subscribe" : "/");
+    return redirectTo(profile?.username ? "/subscribe" : "/#support");
+  } catch {
+    return redirectTo("/?error=oauth#support");
+  }
 }
