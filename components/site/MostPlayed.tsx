@@ -19,7 +19,7 @@ export function MostPlayed() {
               Most Played Games
             </h2>
           </Reveal>
-          <div className="mt-12 w-full">
+          <div className="mt-12 w-full" data-analytics-dodecahedron>
             <Dodecahedron faces={buildFaceAssignments()} />
           </div>
         </div>

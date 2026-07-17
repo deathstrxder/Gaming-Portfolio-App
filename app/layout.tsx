@@ -4,6 +4,7 @@ import "./globals.css";
 
 import { IntroProvider } from "@/components/site/IntroContext";
 import { SectionStreaks } from "@/components/site/SectionStreaks";
+import { Analytics } from "@/components/site/Analytics";
 
 const orbitron = Orbitron({
   subsets: ["latin"],
@@ -39,6 +40,7 @@ export default function RootLayout({
             scroll lag the GIF did). The opaque hero covers it; the home hero keeps its
             own GIF backdrop via HomeBackdrop. */}
         <SectionStreaks />
+        <Analytics />
         <IntroProvider>{children}</IntroProvider>
         {/* No-JS: the intro can't play, so show EddieHome as-is and drop the bar. */}
         <noscript>

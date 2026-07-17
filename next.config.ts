@@ -1,24 +1,16 @@
 import type { NextConfig } from "next";
 
-// GitHub Pages serves this project repo under a sub-path (/Gaming-Portfolio-App).
-// The base path is injected at build time (see .github/workflows/deploy.yml) and is
-// empty locally, so `npm run dev`/`build` run at the domain root. The same value is
-// read by ./image-loader.ts to prefix <Image> URLs.
+// The site now runs as a Node server (no static export), so it can serve
+// route handlers and talk to the local SQLite database.
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
 
 const nextConfig: NextConfig = {
-  // Emit a fully static site into `out/` — no Node server needed to host it.
-  output: "export",
-
-  // Only set basePath/assetPrefix when deploying under a sub-path (i.e. in CI).
   ...(basePath ? { basePath, assetPrefix: basePath } : {}),
 
-  // Emit `foo/index.html` and `foo/` links — the tidy shape for static hosts like Pages.
-  trailingSlash: true,
+  // better-sqlite3 is a native module; Next must not try to bundle it.
+  serverExternalPackages: ["better-sqlite3"],
 
   images: {
-    // The default image optimizer needs a server, which a static export doesn't have.
-    // A custom loader serves assets as-is and adds the basePath (see image-loader.ts).
     loader: "custom",
     loaderFile: "./image-loader.ts",
   },
