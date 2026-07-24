@@ -6,6 +6,7 @@ const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
   {
+    files: ["**/*.test.ts", "**/*.test.tsx"],
     rules: {
       // The "omit a property via rest destructuring" idiom (e.g.
       // `const { unwanted, ...rest } = obj`) intentionally leaves the

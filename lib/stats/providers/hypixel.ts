@@ -128,7 +128,8 @@ export async function fetchHypixel(opts: {
     data.skyblock = await buildSkyblockStats(opts.apiKey, uuid);
   } catch (error) {
     // Deliberate: Bridge stats still publish when networth computation fails.
-    console.warn("[hypixel] skyblock networth skipped:", (error as Error).message);
+    const reason = error instanceof Error ? error.message : String(error);
+    console.warn("[hypixel] skyblock networth skipped:", reason);
   }
 
   return data;
