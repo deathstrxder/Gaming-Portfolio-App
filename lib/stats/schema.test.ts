@@ -73,4 +73,22 @@ describe("snapshotSchema", () => {
     const result = snapshotSchema.safeParse(seed);
     expect(result.success).toBe(true);
   });
+
+  it("accepts a hypixel payload with bridge stats but no skyblock block", () => {
+    const bridgeOnly = {
+      version: 1,
+      generatedAt: "2026-07-24T18:00:00.000Z",
+      providers: {
+        hypixel: {
+          ok: true,
+          stale: false,
+          fetchedAt: "2026-07-24T18:00:00.000Z",
+          data: {
+            bridge: { title: "Grandmaster", wins: 1847, losses: 612, wlr: 3.02, bestWinstreak: 53 },
+          },
+        },
+      },
+    };
+    expect(snapshotSchema.safeParse(bridgeOnly).success).toBe(true);
+  });
 });

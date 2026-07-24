@@ -33,7 +33,7 @@ const youtubeDataSchema = z.object({
 });
 
 /** Wraps a provider's payload in the shared ok/stale/fetchedAt envelope. */
-function providerSchema<T extends z.ZodTypeAny>(dataSchema: T) {
+function providerSchema<T extends z.ZodType>(dataSchema: T) {
   return z.object({
     ok: z.boolean(),
     stale: z.boolean(),
