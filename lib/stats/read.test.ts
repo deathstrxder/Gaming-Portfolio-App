@@ -44,12 +44,14 @@ describe("getLiveStats", () => {
     });
     const stats = await getLiveStats();
     expect(stats.version).toBe(1);
+    expect(stats.providers.hypixel).toBeUndefined();
   });
 
   it("falls back to the bundled seed when the body is not valid JSON", async () => {
     mockFetch(() => new Response("<!doctype html>", { status: 200 }));
     const stats = await getLiveStats();
     expect(stats.version).toBe(1);
+    expect(stats.providers.hypixel).toBeUndefined();
   });
 
   it("falls back to the bundled seed when the payload fails schema validation", async () => {

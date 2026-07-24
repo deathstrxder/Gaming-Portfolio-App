@@ -9,8 +9,19 @@ import type { Snapshot } from "./types";
 export const SNAPSHOT_URL =
   "https://raw.githubusercontent.com/deathstrxder/Gaming-Portfolio-App/stats-data/data/stats.json";
 
+/**
+ * Last-resort snapshot if the bundled seed ever drifts from the schema.
+ * Hardcoded rather than derived, so this module cannot throw at import time.
+ */
+const EMPTY_SNAPSHOT: Snapshot = {
+  version: 1,
+  generatedAt: "1970-01-01T00:00:00.000Z",
+  providers: {},
+};
+
 /** The bundled seed is the guaranteed floor — the page always has real numbers. */
-const fallback = snapshotSchema.parse(seed) as Snapshot;
+const seedResult = snapshotSchema.safeParse(seed);
+const fallback: Snapshot = seedResult.success ? (seedResult.data as Snapshot) : EMPTY_SNAPSHOT;
 
 /**
  * Reads the published snapshot, preferring fresh remote data and falling back to
