@@ -88,9 +88,7 @@ export const GAMES: Record<string, Game> = {
     icon: "/gaming/icons/minecraft.svg",
     iconAlt: "/gaming/icons/minecraft-2.svg",
     bullets: [
-      "Grandmaster in Hypixel Bridge",
-      "World Record Holder of the 50 winstreak speedrun in Bridge",
-      "4bil+ networth in Hypixel Skyblock",
+      "Hypixel is the only server I still play on",
     ],
   },
   fortnite: {
