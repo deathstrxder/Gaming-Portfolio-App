@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { mergeProvider } from "./merge";
+import { mergeProvider, composeSnapshot } from "./merge";
 
 const NOW = "2026-07-24T18:00:00.000Z";
 const EARLIER = "2026-07-24T12:00:00.000Z";
@@ -34,5 +34,41 @@ describe("mergeProvider", () => {
     const result = mergeProvider<Payload>(previous, { ok: false }, NOW);
     expect(result?.stale).toBe(true);
     expect(result?.fetchedAt).toBe(EARLIER);
+  });
+});
+
+describe("composeSnapshot", () => {
+  const previous = {
+    version: 1 as const,
+    generatedAt: EARLIER,
+    providers: {
+      hypixel: { ok: true, stale: false, fetchedAt: EARLIER, data: { bridge: { title: "Grandmaster", wins: 1847, losses: 612, wlr: 3.02, bestWinstreak: 53 } } },
+      youtube: { ok: true, stale: false, fetchedAt: EARLIER, data: { subscribers: 1000, subscribersAreRounded: true, videos: [] } },
+    },
+  };
+
+  it("keeps the failing provider's previous data stale while writing the other fresh", () => {
+    const next = composeSnapshot(
+      previous,
+      {
+        hypixel: { ok: false },
+        youtube: { ok: true, data: { subscribers: 1240, subscribersAreRounded: true, videos: [] } },
+      },
+      NOW,
+    );
+
+    expect(next.generatedAt).toBe(NOW);
+    expect(next.providers.hypixel).toEqual({ ...previous.providers.hypixel, stale: true });
+    expect(next.providers.hypixel?.fetchedAt).toBe(EARLIER);
+    expect(next.providers.youtube?.stale).toBe(false);
+    expect(next.providers.youtube?.fetchedAt).toBe(NOW);
+    expect(next.providers.youtube?.data?.subscribers).toBe(1240);
+  });
+
+  it("advances generatedAt even when a provider is carried forward stale", () => {
+    const next = composeSnapshot(previous, { hypixel: { ok: false }, youtube: { ok: false } }, NOW);
+    expect(next.generatedAt).toBe(NOW);
+    expect(next.providers.hypixel?.stale).toBe(true);
+    expect(next.providers.youtube?.stale).toBe(true);
   });
 });

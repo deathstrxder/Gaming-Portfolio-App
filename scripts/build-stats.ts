@@ -1,8 +1,8 @@
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { readFile, writeFile, mkdir, rename } from "node:fs/promises";
 import path from "node:path";
 
 import { snapshotSchema } from "@/lib/stats/schema";
-import { mergeProvider } from "@/lib/stats/merge";
+import { composeSnapshot } from "@/lib/stats/merge";
 import { fetchHypixel } from "@/lib/stats/providers/hypixel";
 import { fetchYouTube } from "@/lib/stats/providers/youtube";
 import type { HypixelData, Snapshot, YouTubeData } from "@/lib/stats/types";
@@ -23,20 +23,38 @@ async function attempt<T>(
   try {
     return { ok: true, data: await run() };
   } catch (error) {
-    console.error(`[${label}] failed:`, (error as Error).message);
+    const reason = error instanceof Error ? error.message : String(error);
+    console.error(`[${label}] failed:`, reason);
     return { ok: false };
   }
 }
 
 async function readPrevious(): Promise<Snapshot> {
+  let raw: string;
   try {
-    const parsed = snapshotSchema.safeParse(JSON.parse(await readFile(OUTPUT, "utf8")));
-    if (parsed.success) return parsed.data as Snapshot;
-    console.warn("[build-stats] existing snapshot failed validation; starting fresh");
-  } catch {
-    console.warn("[build-stats] no readable existing snapshot; starting fresh");
+    raw = await readFile(OUTPUT, "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      console.warn("[build-stats] no existing snapshot; starting fresh");
+      return { version: 1, generatedAt: new Date(0).toISOString(), providers: {} };
+    }
+    throw error;
   }
-  return { version: 1, generatedAt: new Date(0).toISOString(), providers: {} };
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    // Corruption, not a first run. Starting fresh here would silently discard
+    // history the moment any provider also failed, so refuse to continue.
+    throw new Error(`existing snapshot at ${OUTPUT} is not valid JSON; refusing to overwrite it`);
+  }
+
+  const result = snapshotSchema.safeParse(parsed);
+  if (!result.success) {
+    throw new Error(`existing snapshot at ${OUTPUT} failed schema validation; refusing to overwrite it`);
+  }
+  return result.data as Snapshot;
 }
 
 async function main() {
@@ -59,14 +77,11 @@ async function main() {
     return;
   }
 
-  const next: Snapshot = {
-    version: 1,
-    generatedAt: nowIso,
-    providers: {
-      hypixel: mergeProvider(previous.providers.hypixel, hypixelOutcome, nowIso),
-      youtube: mergeProvider(previous.providers.youtube, youtubeOutcome, nowIso),
-    },
-  };
+  const next: Snapshot = composeSnapshot(
+    previous,
+    { hypixel: hypixelOutcome, youtube: youtubeOutcome },
+    nowIso,
+  );
 
   const validated = snapshotSchema.safeParse(next);
   if (!validated.success) {
@@ -77,7 +92,9 @@ async function main() {
   }
 
   await mkdir(path.dirname(OUTPUT), { recursive: true });
-  await writeFile(OUTPUT, `${JSON.stringify(next, null, 2)}\n`, "utf8");
+  const tmp = `${OUTPUT}.tmp`;
+  await writeFile(tmp, `${JSON.stringify(next, null, 2)}\n`, "utf8");
+  await rename(tmp, OUTPUT);
   console.log(`[build-stats] wrote ${OUTPUT} at ${nowIso}`);
 }
 
