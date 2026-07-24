@@ -1,0 +1,87 @@
+import { readFile, writeFile, mkdir } from "node:fs/promises";
+import path from "node:path";
+
+import { snapshotSchema } from "@/lib/stats/schema";
+import { mergeProvider } from "@/lib/stats/merge";
+import { fetchHypixel } from "@/lib/stats/providers/hypixel";
+import { fetchYouTube } from "@/lib/stats/providers/youtube";
+import type { HypixelData, Snapshot, YouTubeData } from "@/lib/stats/types";
+
+const OUTPUT = path.join(process.cwd(), "data", "stats.json");
+
+function required(name: string): string {
+  const value = process.env[name];
+  if (!value) throw new Error(`missing required environment variable ${name}`);
+  return value;
+}
+
+/** Turns a provider call into a merge outcome, logging rather than throwing. */
+async function attempt<T>(
+  label: string,
+  run: () => Promise<T>,
+): Promise<{ ok: true; data: T } | { ok: false }> {
+  try {
+    return { ok: true, data: await run() };
+  } catch (error) {
+    console.error(`[${label}] failed:`, (error as Error).message);
+    return { ok: false };
+  }
+}
+
+async function readPrevious(): Promise<Snapshot> {
+  try {
+    const parsed = snapshotSchema.safeParse(JSON.parse(await readFile(OUTPUT, "utf8")));
+    if (parsed.success) return parsed.data as Snapshot;
+    console.warn("[build-stats] existing snapshot failed validation; starting fresh");
+  } catch {
+    console.warn("[build-stats] no readable existing snapshot; starting fresh");
+  }
+  return { version: 1, generatedAt: new Date(0).toISOString(), providers: {} };
+}
+
+async function main() {
+  const previous = await readPrevious();
+  const nowIso = new Date().toISOString();
+
+  const [hypixelOutcome, youtubeOutcome] = await Promise.all([
+    attempt<HypixelData>("hypixel", () =>
+      fetchHypixel({ apiKey: required("HYPIXEL_API_KEY"), username: required("MC_USERNAME") }),
+    ),
+    attempt<YouTubeData>("youtube", () =>
+      fetchYouTube({ apiKey: required("YOUTUBE_API_KEY"), handle: required("YOUTUBE_HANDLE") }),
+    ),
+  ]);
+
+  if (!hypixelOutcome.ok && !youtubeOutcome.ok) {
+    // Every provider failed. Writing nothing leaves the last good snapshot in
+    // place; exiting clean keeps the scheduled job from going red on a blip.
+    console.error("[build-stats] all providers failed; leaving the snapshot untouched");
+    return;
+  }
+
+  const next: Snapshot = {
+    version: 1,
+    generatedAt: nowIso,
+    providers: {
+      hypixel: mergeProvider(previous.providers.hypixel, hypixelOutcome, nowIso),
+      youtube: mergeProvider(previous.providers.youtube, youtubeOutcome, nowIso),
+    },
+  };
+
+  const validated = snapshotSchema.safeParse(next);
+  if (!validated.success) {
+    console.error("[build-stats] built an invalid snapshot; refusing to write");
+    console.error(JSON.stringify(validated.error.issues, null, 2));
+    process.exitCode = 1;
+    return;
+  }
+
+  await mkdir(path.dirname(OUTPUT), { recursive: true });
+  await writeFile(OUTPUT, `${JSON.stringify(next, null, 2)}\n`, "utf8");
+  console.log(`[build-stats] wrote ${OUTPUT} at ${nowIso}`);
+}
+
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});
