@@ -1,0 +1,85 @@
+name: Refresh game stats
+
+on:
+  schedule:
+    # Every 6 hours. GitHub queues scheduled runs on a busy shared pool, so the
+    # actual firing time drifts by a few minutes — which is irrelevant here.
+    #
+    # NOTE: GitHub only runs scheduled workflows from the repository's DEFAULT
+    # branch. Until this file reaches the default branch this job is dormant and
+    # must be started by hand.
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+
+# Needed so the built-in GITHUB_TOKEN can push the refreshed snapshot.
+permissions:
+  contents: write
+
+concurrency:
+  group: refresh-game-stats
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the code branch
+        uses: actions/checkout@v4
+        with:
+          ref: live-game-stats
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - run: npm ci
+
+      - name: Fetch the current published snapshot
+        # Seeds data/stats.json with what is already live so composeSnapshot can
+        # preserve last-known-good data when a provider fails this run.
+        #
+        # Downloaded to a temp path and only moved into place on a 2xx. Without
+        # -f, curl exits 0 on a 404 and writes GitHub's "404: Not Found" body
+        # into the file; build-stats reads that as corruption and refuses to
+        # overwrite it, which would fail this and every later run.
+        run: |
+          if curl -fsSL -o "$RUNNER_TEMP/published.json" \
+            "https://raw.githubusercontent.com/${{ github.repository }}/stats-data/data/stats.json"; then
+            mkdir -p data
+            cp "$RUNNER_TEMP/published.json" data/stats.json
+            echo "seeded from the published snapshot"
+          else
+            echo "no published snapshot yet; keeping the committed seed"
+          fi
+
+      - name: Build the snapshot
+        env:
+          HYPIXEL_API_KEY: ${{ secrets.HYPIXEL_API_KEY }}
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+          MC_USERNAME: ${{ vars.MC_USERNAME }}
+          YOUTUBE_HANDLE: ${{ vars.YOUTUBE_HANDLE }}
+        run: npm run stats:build
+
+      - name: Publish to the stats-data branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # Published from a throwaway clone rather than by switching branches in
+        # the working checkout: data/stats.json is tracked on both branches, so
+        # switching with the freshly built file in place is refused by git.
+        run: |
+          git clone --depth 1 --branch stats-data \
+            "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" \
+            "$RUNNER_TEMP/publish"
+          mkdir -p "$RUNNER_TEMP/publish/data"
+          cp data/stats.json "$RUNNER_TEMP/publish/data/stats.json"
+          cd "$RUNNER_TEMP/publish"
+          if git diff --quiet -- data/stats.json; then
+            echo "snapshot unchanged; nothing to publish"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/stats.json
+          git commit -m "chore(stats): refresh snapshot"
+          git push origin stats-data
