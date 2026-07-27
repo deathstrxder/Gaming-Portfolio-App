@@ -2,15 +2,13 @@ import Image from "next/image";
 
 import { YOUTUBE_URL } from "@/lib/games";
 import { getLiveStats } from "@/lib/stats/read";
-import { formatCompactNumber, formatCount, formatRelativeTime } from "@/lib/stats/format";
+import { formatCount, formatRelativeTime } from "@/lib/stats/format";
 import { Reveal } from "@/components/site/Reveal";
 
 export async function ClipsRow() {
   const stats = await getLiveStats();
   const youtube = stats.providers.youtube;
   if (!youtube?.data) return null;
-
-  const { subscribers, subscribersAreRounded } = youtube.data;
 
   // The API omits `thumbnails.medium` for private, deleted, or live-stream
   // entries, which the provider maps to an empty string (see
@@ -19,6 +17,19 @@ export async function ClipsRow() {
   // browsers instead of simply failing to load.
   const videos = youtube.data.videos.filter((video) => video.thumbnail !== "");
   if (videos.length === 0) return null;
+
+  // The channel can have fewer uploads than the four-across grid assumes. Left
+  // as a fixed four-track grid, two clips strand against the left edge of a
+  // 120rem container, so both the track count and the grid's own width follow
+  // the item count and the row stays centred.
+  const layout =
+    videos.length >= 4
+      ? "sm:grid-cols-2 lg:grid-cols-4"
+      : videos.length === 3
+        ? "mx-auto max-w-6xl sm:grid-cols-2 lg:grid-cols-3"
+        : videos.length === 2
+          ? "mx-auto max-w-5xl sm:grid-cols-2"
+          : "mx-auto max-w-md";
 
   return (
     <section
@@ -36,15 +47,12 @@ export async function ClipsRow() {
             rel="noopener noreferrer"
             className="font-display text-lg uppercase tracking-[0.2em] text-neon-purple text-glow-purple transition-opacity hover:opacity-80"
           >
-            {/* The API rounds counts above 1,000, so an approximate value is
-                marked with a tilde rather than presented as exact. */}
-            {subscribersAreRounded ? "~" : ""}
-            {formatCompactNumber(subscribers)} subscribers
+            Watch on YouTube
           </a>
         </div>
       </Reveal>
 
-      <div className="mt-12 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
+      <div className={`mt-12 grid grid-cols-1 gap-8 ${layout}`}>
         {videos.map((video) => (
           <Reveal key={video.id} from="up">
             <a
