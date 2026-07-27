@@ -22,6 +22,11 @@ concurrency:
 jobs:
   refresh:
     runs-on: ubuntu-latest
+    # The whole job is network calls against three APIs and a tiny commit; it
+    # has no business running for more than a few minutes. Without this a
+    # provider that stalls, or a stray handle keeping node alive after the work
+    # is done, occupies a runner until the six-hour default fires.
+    timeout-minutes: 10
     steps:
       - name: Check out the code branch
         uses: actions/checkout@v4
