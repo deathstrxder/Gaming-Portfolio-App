@@ -3,23 +3,23 @@ import { desc, eq } from "drizzle-orm";
 import type { AppDb } from "./index";
 import { users, profiles } from "./schema";
 
-export function getUserByEmail(db: AppDb, email: string) {
+export async function getUserByEmail(db: AppDb, email: string) {
   return db.select().from(users).where(eq(users.email, email)).get();
 }
 
-export function getUserByGoogleId(db: AppDb, googleId: string) {
+export async function getUserByGoogleId(db: AppDb, googleId: string) {
   return db.select().from(users).where(eq(users.googleId, googleId)).get();
 }
 
-export function linkGoogleId(db: AppDb, userId: number, googleId: string): void {
-  db.update(users).set({ googleId }).where(eq(users.id, userId)).run();
+export async function linkGoogleId(db: AppDb, userId: number, googleId: string): Promise<void> {
+  await db.update(users).set({ googleId }).where(eq(users.id, userId)).run();
 }
 
-export function createUserFromGoogle(
+export async function createUserFromGoogle(
   db: AppDb,
   params: { email: string; googleId: string },
-): { userId: number } {
-  const [u] = db
+): Promise<{ userId: number }> {
+  const [u] = await db
     .insert(users)
     .values({ email: params.email, googleId: params.googleId, emailVerified: true })
     .returning()
@@ -29,99 +29,101 @@ export function createUserFromGoogle(
 
 export type GoogleOutcome = "existing" | "linked" | "created";
 
-export function resolveGoogleUser(
+export async function resolveGoogleUser(
   db: AppDb,
   params: { email: string; googleId: string },
-): { userId: number; outcome: GoogleOutcome } {
-  const byGoogle = getUserByGoogleId(db, params.googleId);
+): Promise<{ userId: number; outcome: GoogleOutcome }> {
+  const byGoogle = await getUserByGoogleId(db, params.googleId);
   if (byGoogle) return { userId: byGoogle.id, outcome: "existing" };
 
-  const byEmail = getUserByEmail(db, params.email);
+  const byEmail = await getUserByEmail(db, params.email);
   if (byEmail) {
-    linkGoogleId(db, byEmail.id, params.googleId);
+    await linkGoogleId(db, byEmail.id, params.googleId);
     return { userId: byEmail.id, outcome: "linked" };
   }
 
-  const created = createUserFromGoogle(db, params);
+  const created = await createUserFromGoogle(db, params);
   return { userId: created.userId, outcome: "created" };
 }
 
-export function setPassword(db: AppDb, userId: number, newPassword: string): void {
-  db.update(users)
+export async function setPassword(db: AppDb, userId: number, newPassword: string): Promise<void> {
+  await db
+    .update(users)
     .set({ passwordHash: bcrypt.hashSync(newPassword, 10) })
     .where(eq(users.id, userId))
     .run();
 }
 
-export function createUnverifiedUser(
+export async function createUnverifiedUser(
   db: AppDb,
   email: string,
   password: string,
-): { ok: true; userId: number } | { ok: false; error: "email_taken" } {
-  if (getUserByEmail(db, email)) return { ok: false, error: "email_taken" };
+): Promise<{ ok: true; userId: number } | { ok: false; error: "email_taken" }> {
+  if (await getUserByEmail(db, email)) return { ok: false, error: "email_taken" };
   const passwordHash = bcrypt.hashSync(password, 10);
-  const [u] = db.insert(users).values({ email, passwordHash }).returning().all();
+  const [u] = await db.insert(users).values({ email, passwordHash }).returning().all();
   return { ok: true, userId: u.id };
 }
 
-export function verifyCredentials(db: AppDb, email: string, password: string) {
-  const u = getUserByEmail(db, email);
+export async function verifyCredentials(db: AppDb, email: string, password: string) {
+  const u = await getUserByEmail(db, email);
   if (!u || u.passwordHash === null) return null;
   return bcrypt.compareSync(password, u.passwordHash) ? u : null;
 }
 
-export function getProfile(db: AppDb, userId: number) {
+export async function getProfile(db: AppDb, userId: number) {
   return db.select().from(profiles).where(eq(profiles.userId, userId)).get();
 }
 
-export function setUsername(
+export async function setUsername(
   db: AppDb,
   userId: number,
   username: string,
   location?: string,
-): { ok: true } | { ok: false; error: "username_taken" } {
-  const taken = db.select().from(profiles).where(eq(profiles.username, username)).get();
+): Promise<{ ok: true } | { ok: false; error: "username_taken" }> {
+  const taken = await db.select().from(profiles).where(eq(profiles.username, username)).get();
   if (taken && taken.userId !== userId) return { ok: false, error: "username_taken" };
 
-  if (getProfile(db, userId)) {
-    db.update(profiles).set({ username }).where(eq(profiles.userId, userId)).run();
+  if (await getProfile(db, userId)) {
+    await db.update(profiles).set({ username }).where(eq(profiles.userId, userId)).run();
   } else {
-    db.insert(profiles).values({ userId, username, location: location ?? null }).run();
+    await db.insert(profiles).values({ userId, username, location: location ?? null }).run();
   }
   return { ok: true };
 }
 
-export function getUserById(db: AppDb, userId: number) {
+export async function getUserById(db: AppDb, userId: number) {
   return db.select().from(users).where(eq(users.id, userId)).get();
 }
 
-export function changePassword(
+export async function changePassword(
   db: AppDb,
   userId: number,
   currentPassword: string,
   newPassword: string,
-): { ok: true } | { ok: false; error: "wrong_password" } {
-  const u = getUserById(db, userId);
+): Promise<{ ok: true } | { ok: false; error: "wrong_password" }> {
+  const u = await getUserById(db, userId);
   if (!u || u.passwordHash === null || !bcrypt.compareSync(currentPassword, u.passwordHash)) {
     return { ok: false, error: "wrong_password" };
   }
-  db.update(users)
+  await db
+    .update(users)
     .set({ passwordHash: bcrypt.hashSync(newPassword, 10) })
     .where(eq(users.id, userId))
     .run();
   return { ok: true };
 }
 
-export function setBirthday(db: AppDb, userId: number, birthday: string): void {
-  db.update(profiles).set({ birthday }).where(eq(profiles.userId, userId)).run();
+export async function setBirthday(db: AppDb, userId: number, birthday: string): Promise<void> {
+  await db.update(profiles).set({ birthday }).where(eq(profiles.userId, userId)).run();
 }
 
-export function deleteUser(db: AppDb, userId: number): void {
+export async function deleteUser(db: AppDb, userId: number): Promise<void> {
   // profiles/verification_codes cascade; events.user_id is set null (FK rules).
-  db.delete(users).where(eq(users.id, userId)).run();
+  await db.delete(users).where(eq(users.id, userId)).run();
 }
 
-export function listAllUsers(db: AppDb) {
+export async function listAllUsers(db: AppDb) {
   return db
     .select({
       userId: users.id,
@@ -144,13 +146,13 @@ export function listAllUsers(db: AppDb) {
 const MONTH_MS = 30 * 24 * 60 * 60 * 1000;
 export type SubscriptionAction = "add" | "extend" | "shorten" | "remove";
 
-export function modifySubscription(
+export async function modifySubscription(
   db: AppDb,
   userId: number,
   action: SubscriptionAction,
   months = 1,
-): void {
-  const p = getProfile(db, userId);
+): Promise<void> {
+  const p = await getProfile(db, userId);
   if (!p) return;
   const now = Date.now();
   let status: "none" | "active" | "canceled" = p.subscriptionStatus;
@@ -173,7 +175,8 @@ export function modifySubscription(
     expires = null;
   }
 
-  db.update(profiles)
+  await db
+    .update(profiles)
     .set({ subscriptionStatus: status, subscriptionExpiresAt: expires ? new Date(expires) : null })
     .where(eq(profiles.userId, userId))
     .run();
