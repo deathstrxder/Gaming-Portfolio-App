@@ -1,5 +1,7 @@
 import { createClient } from "@libsql/client";
 import { drizzle, type LibSQLDatabase } from "drizzle-orm/libsql";
+import { mkdirSync } from "node:fs";
+import { dirname } from "node:path";
 import * as schema from "./schema";
 
 export type AppDb = LibSQLDatabase<typeof schema>;
@@ -10,6 +12,15 @@ export type AppDb = LibSQLDatabase<typeof schema>;
 const url = process.env.TURSO_DATABASE_URL ?? `file:${process.env.DATABASE_PATH ?? "data/app.db"}`;
 
 function createDb(): AppDb {
+  // libSQL creates the .db file for a file: URL but NOT its parent directory,
+  // and createClient then throws SQLITE_CANTOPEN synchronously. Because `db`
+  // below is initialised at module-import time, that surfaces as a crash on
+  // first import with no hint that a missing directory caused it. `/data/` is
+  // gitignored, so it need not exist on a fresh clone.
+  if (url.startsWith("file:")) {
+    const filePath = url.slice("file:".length).replace(/\?.*$/, "");
+    mkdirSync(dirname(filePath), { recursive: true });
+  }
   const client = createClient({ url, authToken: process.env.TURSO_AUTH_TOKEN });
   return drizzle(client, { schema });
 }
