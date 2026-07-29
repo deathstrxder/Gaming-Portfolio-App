@@ -31,9 +31,6 @@ interface AdminUser {
   birthday: string | null;
   subscriptionStatus: string;
   subscriptionExpiresAt: string | null;
-  paymentLast4: string | null;
-  paymentBrand: string | null;
-  paymentAttempted: boolean;
   role: string;
 }
 
@@ -157,7 +154,6 @@ export function AdminDashboard() {
                     <th className="p-2">Password</th>
                     <th className="p-2">Region</th>
                     <th className="p-2">Birthday</th>
-                    <th className="p-2">Payment</th>
                     <th className="p-2">Subscription</th>
                     <th className="p-2">Actions</th>
                   </tr>
@@ -170,7 +166,6 @@ export function AdminDashboard() {
                       <td className="p-2 text-muted/60">hashed — not viewable</td>
                       <td className="p-2">{u.location ?? "—"}</td>
                       <td className="p-2">{u.birthday ?? "—"}</td>
-                      <td className="p-2">{u.paymentAttempted ? `${u.paymentBrand ?? "Card"} ••${u.paymentLast4 ?? "????"}` : "—"}</td>
                       <td className="p-2">
                         {u.subscriptionStatus}
                         {u.subscriptionExpiresAt ? <span className="block text-muted/60">until {new Date(u.subscriptionExpiresAt).toLocaleDateString()}</span> : null}

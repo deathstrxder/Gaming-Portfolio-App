@@ -15,7 +15,6 @@ import {
   changePassword,
   setBirthday,
   deleteUser,
-  recordPaymentAttempt,
   listAllUsers,
   modifySubscription,
   resolveGoogleUser,
@@ -96,18 +95,14 @@ describe("account services", () => {
     expect(bcrypt.compareSync("New1!pass", u.passwordHash!)).toBe(true);
   });
 
-  it("setBirthday and recordPaymentAttempt update the profile", () => {
+  it("setBirthday updates the profile", () => {
     const db = freshDb();
     const a = createUnverifiedUser(db, "a@b.com", "Abc1!x");
     if (!a.ok) throw new Error("setup");
     setUsername(db, a.userId, "neo");
     setBirthday(db, a.userId, "1999-05-01");
-    recordPaymentAttempt(db, a.userId, "4242", "Visa");
     const p = getProfile(db, a.userId)!;
     expect(p.birthday).toBe("1999-05-01");
-    expect(p.paymentAttempted).toBe(true);
-    expect(p.paymentLast4).toBe("4242");
-    expect(p.paymentBrand).toBe("Visa");
   });
 
   it("deleteUser removes the user and cascades the profile", () => {

@@ -25,6 +25,5 @@ describe("schema", () => {
     expect(p?.username).toBe("neo");
     expect(p?.role).toBe("user");
     expect(p?.subscriptionStatus).toBe("none");
-    expect(p?.paymentAttempted).toBe(false);
   });
 });

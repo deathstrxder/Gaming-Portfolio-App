@@ -121,18 +121,6 @@ export function deleteUser(db: AppDb, userId: number): void {
   db.delete(users).where(eq(users.id, userId)).run();
 }
 
-export function recordPaymentAttempt(
-  db: AppDb,
-  userId: number,
-  last4: string | null,
-  brand: string,
-): void {
-  db.update(profiles)
-    .set({ paymentAttempted: true, paymentLast4: last4, paymentBrand: brand })
-    .where(eq(profiles.userId, userId))
-    .run();
-}
-
 export function listAllUsers(db: AppDb) {
   return db
     .select({
@@ -145,9 +133,6 @@ export function listAllUsers(db: AppDb) {
       birthday: profiles.birthday,
       subscriptionStatus: profiles.subscriptionStatus,
       subscriptionExpiresAt: profiles.subscriptionExpiresAt,
-      paymentLast4: profiles.paymentLast4,
-      paymentBrand: profiles.paymentBrand,
-      paymentAttempted: profiles.paymentAttempted,
       role: profiles.role,
     })
     .from(users)
