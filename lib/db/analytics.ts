@@ -8,40 +8,53 @@ export interface Breakdown {
   n: number;
 }
 
-function groupCount(db: AppDb, type: string, col: AnySQLiteColumn, limit?: number): Breakdown[] {
+async function groupCount(
+  db: AppDb,
+  type: string,
+  col: AnySQLiteColumn,
+  limit?: number,
+): Promise<Breakdown[]> {
   const q = db
     .select({ key: col, n: count() })
     .from(events)
     .where(eq(events.type, type))
     .groupBy(col)
     .orderBy(desc(sql`count(*)`));
-  const rows = (limit ? q.limit(limit) : q).all();
+  const rows = await (limit ? q.limit(limit) : q).all();
   return rows.map((r) => ({ key: (r.key as string | null) ?? "Unknown", n: r.n }));
 }
 
-export function getTraffic(db: AppDb) {
+export async function getTraffic(db: AppDb) {
   const totalVisits =
-    db.select({ n: count() }).from(events).where(eq(events.type, "page_view")).get()?.n ?? 0;
+    (await db.select({ n: count() }).from(events).where(eq(events.type, "page_view")).get())?.n ?? 0;
   const uniqueVisitors =
-    db.select({ n: countDistinct(events.userId) }).from(events).where(eq(events.type, "page_view")).get()?.n ?? 0;
+    (await db
+      .select({ n: countDistinct(events.userId) })
+      .from(events)
+      .where(eq(events.type, "page_view"))
+      .get())?.n ?? 0;
   return {
     totalVisits,
     uniqueVisitors,
-    byDevice: groupCount(db, "page_view", events.device),
-    byBrowser: groupCount(db, "page_view", events.browser),
-    byOs: groupCount(db, "page_view", events.os),
-    byRegion: groupCount(db, "page_view", events.region),
-    byPath: groupCount(db, "page_view", events.path),
+    byDevice: await groupCount(db, "page_view", events.device),
+    byBrowser: await groupCount(db, "page_view", events.browser),
+    byOs: await groupCount(db, "page_view", events.os),
+    byRegion: await groupCount(db, "page_view", events.region),
+    byPath: await groupCount(db, "page_view", events.path),
   };
 }
 
-export function getAnalytics(db: AppDb) {
+export async function getAnalytics(db: AppDb) {
   const dodecahedronInteractions =
-    db.select({ n: count() }).from(events).where(eq(events.type, "dodecahedron_interaction")).get()?.n ?? 0;
+    (await db
+      .select({ n: count() })
+      .from(events)
+      .where(eq(events.type, "dodecahedron_interaction"))
+      .get())?.n ?? 0;
   return {
-    mostViewedSections: groupCount(db, "section_view", events.section, 5),
-    mostPressedButtons: groupCount(db, "button_click", events.target, 5),
+    mostViewedSections: await groupCount(db, "section_view", events.section, 5),
+    mostPressedButtons: await groupCount(db, "button_click", events.target, 5),
     dodecahedronInteractions,
-    topPages: groupCount(db, "page_view", events.path, 5),
+    topPages: await groupCount(db, "page_view", events.path, 5),
   };
 }

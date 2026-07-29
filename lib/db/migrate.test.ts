@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from "vitest";
-import Database from "better-sqlite3";
+import { createClient } from "@libsql/client";
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -15,7 +15,22 @@ function makeTempDir(prefix: string): string {
   return dir;
 }
 afterEach(() => {
-  while (tempDirs.length) rmSync(tempDirs.pop()!, { recursive: true, force: true });
+  while (tempDirs.length) {
+    const dir = tempDirs.pop()!;
+    try {
+      rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    } catch (err) {
+      // On Windows, @libsql/client's local-file backend can hold the
+      // sqlite file handle open for a moment after close() returns, which
+      // occasionally makes the OS refuse to remove the freshly-closed temp
+      // directory even after fs.rmSync's own retry/backoff. This is a
+      // best-effort cleanup of an OS temp dir, not part of the test's
+      // assertions -- a transient handle lock here must not fail the
+      // suite. Anything other than that known lock error still surfaces.
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code !== "EPERM" && code !== "EBUSY") throw err;
+    }
+  }
 });
 
 /**
@@ -54,69 +69,85 @@ function buildPreRebuildMigrationsFolder(): string {
   return dir;
 }
 
-function rowCount(sqlite: Database.Database, table: string): number {
-  return (sqlite.prepare(`SELECT COUNT(*) AS c FROM ${table}`).get() as { c: number }).c;
+// A libSQL URL, not a filesystem path -- runMigrations now speaks the same
+// URL scheme as lib/db/index.ts (":memory:", "file:...", "libsql://...").
+// This test specifically needs a *file:* URL rather than ":memory:": it
+// exercises three separate connections against the same database (seed
+// pre-rebuild schema, seed data out-of-band, then apply the rebuild), and
+// each connection to ":memory:" would start from a fresh, empty database,
+// defeating the point of the test. A local file backs the same persistence
+// semantics the real production Turso connection has.
+function fileUrl(path: string): string {
+  return `file:${path.replace(/\\/g, "/")}`;
+}
+
+async function rowCount(url: string, table: string): Promise<number> {
+  const client = createClient({ url });
+  const rs = await client.execute(`SELECT COUNT(*) AS c FROM ${table}`);
+  client.close();
+  return Number(rs.rows[0].c);
 }
 
 describe("runMigrations", () => {
-  it("does not cascade-delete profiles/verification_codes when the 0003 users-table rebuild runs against populated data", () => {
+  it("does not cascade-delete profiles/verification_codes when the 0003 users-table rebuild runs against populated data", async () => {
     const dbDir = makeTempDir("migrate-fk-test-db-");
     const dbPath = join(dbDir, "test.db");
+    const dbUrl = fileUrl(dbPath);
     const preRebuildDir = buildPreRebuildMigrationsFolder();
 
     // Phase 1: bring the DB up to the schema that existed right before the
     // rebuild migration -- mirrors an app that had already been running
     // pre-Task-2 (equivalent to the real dev/prod DB state).
-    runMigrations(dbPath, preRebuildDir);
+    await runMigrations(dbUrl, preRebuildDir);
 
     // Phase 2: seed populated data the way the running app would have:
     // an admin with a profile, a second user with a profile and a pending
     // verification code, and an event referencing a user.
-    const seedDb = new Database(dbPath);
-    seedDb.pragma("foreign_keys = ON");
+    const seedClient = createClient({ url: dbUrl });
     const now = Date.now();
-    seedDb
-      .prepare(
-        `INSERT INTO users (id, email, password_hash, email_verified, created_at) VALUES (1, 'admin@x.local', 'hash1', 1, ?)`,
-      )
-      .run(now);
-    seedDb
-      .prepare(
-        `INSERT INTO users (id, email, password_hash, email_verified, created_at) VALUES (2, 'user@x.local', 'hash2', 0, ?)`,
-      )
-      .run(now);
-    seedDb.prepare(`INSERT INTO profiles (user_id, username, role) VALUES (1, 'admin', 'admin')`).run();
-    seedDb.prepare(`INSERT INTO profiles (user_id, username, role) VALUES (2, 'someone', 'user')`).run();
-    seedDb
-      .prepare(`INSERT INTO verification_codes (user_id, code, expires_at) VALUES (2, '123456', ?)`)
-      .run(now + 100_000);
-    seedDb.prepare(`INSERT INTO events (user_id, type, created_at) VALUES (1, 'login', ?)`).run(now);
+    await seedClient.execute({
+      sql: `INSERT INTO users (id, email, password_hash, email_verified, created_at) VALUES (1, 'admin@x.local', 'hash1', 1, ?)`,
+      args: [now],
+    });
+    await seedClient.execute({
+      sql: `INSERT INTO users (id, email, password_hash, email_verified, created_at) VALUES (2, 'user@x.local', 'hash2', 0, ?)`,
+      args: [now],
+    });
+    await seedClient.execute(`INSERT INTO profiles (user_id, username, role) VALUES (1, 'admin', 'admin')`);
+    await seedClient.execute(`INSERT INTO profiles (user_id, username, role) VALUES (2, 'someone', 'user')`);
+    await seedClient.execute({
+      sql: `INSERT INTO verification_codes (user_id, code, expires_at) VALUES (2, '123456', ?)`,
+      args: [now + 100_000],
+    });
+    await seedClient.execute({
+      sql: `INSERT INTO events (user_id, type, created_at) VALUES (1, 'login', ?)`,
+      args: [now],
+    });
+    seedClient.close();
 
     const before = {
-      users: rowCount(seedDb, "users"),
-      profiles: rowCount(seedDb, "profiles"),
-      verificationCodes: rowCount(seedDb, "verification_codes"),
-      events: rowCount(seedDb, "events"),
+      users: await rowCount(dbUrl, "users"),
+      profiles: await rowCount(dbUrl, "profiles"),
+      verificationCodes: await rowCount(dbUrl, "verification_codes"),
+      events: await rowCount(dbUrl, "events"),
     };
-    seedDb.close();
     expect(before).toEqual({ users: 2, profiles: 2, verificationCodes: 1, events: 1 });
 
     // Phase 3: the real production code path -- apply the remaining real
     // migrations (i.e. the 0003 rebuild) exactly as `npm run db:migrate`
     // would against a populated database.
-    runMigrations(dbPath, REAL_DRIZZLE_DIR);
+    await runMigrations(dbUrl, REAL_DRIZZLE_DIR);
 
-    const afterDb = new Database(dbPath);
     const after = {
-      users: rowCount(afterDb, "users"),
-      profiles: rowCount(afterDb, "profiles"),
-      verificationCodes: rowCount(afterDb, "verification_codes"),
-      events: rowCount(afterDb, "events"),
+      users: await rowCount(dbUrl, "users"),
+      profiles: await rowCount(dbUrl, "profiles"),
+      verificationCodes: await rowCount(dbUrl, "verification_codes"),
+      events: await rowCount(dbUrl, "events"),
     };
-    const eventUserId = (
-      afterDb.prepare(`SELECT user_id FROM events WHERE id = 1`).get() as { user_id: number | null }
-    ).user_id;
-    afterDb.close();
+    const afterClient = createClient({ url: dbUrl });
+    const eventRs = await afterClient.execute(`SELECT user_id FROM events WHERE id = 1`);
+    const eventUserId = eventRs.rows[0].user_id as number | null;
+    afterClient.close();
 
     // These would read profiles: 0, verificationCodes: 0, eventUserId: null
     // if FK enforcement were ON while the rebuild's DROP TABLE ran.

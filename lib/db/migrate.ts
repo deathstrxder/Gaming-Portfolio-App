@@ -1,36 +1,30 @@
-import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
-import { migrate } from "drizzle-orm/better-sqlite3/migrator";
-import { mkdirSync } from "node:fs";
-import { dirname } from "node:path";
+import { createClient } from "@libsql/client";
+import { drizzle } from "drizzle-orm/libsql";
+import { migrate } from "drizzle-orm/libsql/migrator";
 
 /**
- * Applies pending drizzle migrations to the SQLite database at `dbPath`.
+ * Applies pending drizzle migrations to the libSQL database at `url`.
  *
- * Migrations must run with FK enforcement OFF on this connection. Drizzle's
- * better-sqlite3 migrator wraps ALL pending migration files in a single
- * BEGIN/COMMIT transaction, and SQLite ignores `PRAGMA foreign_keys` changes
- * while a transaction is open -- so a `PRAGMA foreign_keys=OFF/ON` pair
- * emitted *inside* a migration file (e.g. drizzle's standard SQLite table
- * rebuild: CREATE __new_x -> INSERT ... SELECT FROM x -> DROP TABLE x ->
- * RENAME __new_x TO x, as used by migration 0003 to relax a NOT NULL
- * constraint) is a no-op there.
+ * Historical note, still relevant: drizzle's migrator wraps ALL pending
+ * migration files in a single transaction, and SQLite ignores
+ * `PRAGMA foreign_keys` changes while a transaction is open. If FK
+ * enforcement is ON when that transaction starts, the table-rebuild pattern
+ * drizzle emits for SQLite (CREATE __new_x -> INSERT ... SELECT -> DROP
+ * TABLE x -> RENAME) makes `DROP TABLE x` cascade-delete every child row.
+ * Migration 0003 rebuilds `users` and would wipe `profiles` /
+ * `verification_codes` and null `events.user_id`.
  *
- * If FK enforcement is ON at the connection level when that transaction
- * starts, `DROP TABLE x` performs an implicit delete of every row in x,
- * which cascades: ON DELETE CASCADE children are wiped and ON DELETE SET
- * NULL children get their reference nulled. This is exactly what migration
- * 0003's users-table rebuild did to `profiles` / `verification_codes` (and
- * nulled `events.user_id`) before this fix. Setting the connection's FK
- * pragma to OFF here -- on the migration path only -- prevents that.
+ * Under better-sqlite3 this was avoided by setting the connection pragma to
+ * OFF. A remote Turso connection offers no equivalent guarantee, so the
+ * mitigation is now procedural: migrations are applied to the production
+ * database while it is EMPTY, before any user data exists (see the plan's
+ * Task 7). A rebuild on an empty table destroys nothing.
  *
- * The app runtime connection (lib/db/index.ts) intentionally keeps FKs ON
- * for normal operation; do not change that to "fix" this.
+ * Before running any FUTURE migration against a populated database, take a
+ * Turso backup first and verify row counts afterwards.
  */
-export function runMigrations(dbPath: string, migrationsFolder = "drizzle"): void {
-  mkdirSync(dirname(dbPath), { recursive: true });
-  const sqlite = new Database(dbPath);
-  sqlite.pragma("foreign_keys = OFF");
-  migrate(drizzle(sqlite), { migrationsFolder });
-  sqlite.close();
+export async function runMigrations(url: string, migrationsFolder = "drizzle"): Promise<void> {
+  const client = createClient({ url, authToken: process.env.TURSO_AUTH_TOKEN });
+  await migrate(drizzle(client), { migrationsFolder });
+  client.close();
 }
