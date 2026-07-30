@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
-import { createClient } from "@libsql/client";
+import { describe, it, expect, vi, afterEach, afterAll } from "vitest";
+import { createClient, type Client } from "@libsql/client";
 import { drizzle } from "drizzle-orm/libsql";
 import { migrate } from "drizzle-orm/libsql/migrator";
 import { eq } from "drizzle-orm";
@@ -10,19 +10,37 @@ import * as schema from "../db/schema";
 import { users } from "../db/schema";
 import { generateCode, issueCode, verifyEmailCode } from "./codes";
 
-const tempDirs: string[] = [];
+// One shared temp root for the whole file (not one mkdtemp per test) and one
+// sweep at the very end, not per test -- see the afterAll comment below for
+// why. Each test gets its own uniquely-named .db file inside it.
+const testRoot = mkdtempSync(join(tmpdir(), "codes-test-db-"));
+let dbCounter = 0;
+const openClients: Client[] = [];
+
 afterEach(() => {
-  while (tempDirs.length) {
-    const dir = tempDirs.pop()!;
-    try {
-      rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
-    } catch (err) {
-      // See the identical comment in lib/db/migrate.test.ts: a transient
-      // Windows file lock on a just-closed local sqlite file must not fail
-      // the suite over best-effort temp-dir cleanup.
-      const code = (err as NodeJS.ErrnoException).code;
-      if (code !== "EPERM" && code !== "EBUSY") throw err;
-    }
+  // Close every client this test opened, unconditionally -- correct hygiene
+  // on its own regardless of whether it helps remove the file (measured: it
+  // usually doesn't, see afterAll).
+  while (openClients.length) openClients.pop()!.close();
+});
+
+afterAll(() => {
+  try {
+    rmSync(testRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  } catch (err) {
+    // Measured during Task 5 review, with a standalone probe outside
+    // vitest: on this Windows machine, a freshly-used local sqlite file
+    // under @libsql/client is frequently NOT removable immediately after
+    // client.close(), in every combination tried (with/without a
+    // db.transaction, with/without an explicit close()). It is not a rare,
+    // transient race -- closing the client is correct regardless, but does
+    // not reliably make the file removable soon after. Sweeping once here
+    // (instead of once per test, as before) only reduces how often this is
+    // hit; it does not eliminate it. When removal fails, the OS reclaims
+    // the temp directory on its own -- nothing in this repo depends on it
+    // being removed synchronously.
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code !== "EPERM" && code !== "EBUSY") throw err;
   }
 });
 
@@ -35,10 +53,9 @@ afterEach(() => {
 // "no such table: users". A real (temp) file reproduces the same reconnect
 // semantics a production file:/libsql:// connection has.
 async function freshDb() {
-  const dir = mkdtempSync(join(tmpdir(), "codes-test-db-"));
-  tempDirs.push(dir);
-  const url = `file:${join(dir, "test.db").replace(/\\/g, "/")}`;
+  const url = `file:${join(testRoot, `db-${dbCounter++}.db`).replace(/\\/g, "/")}`;
   const client = createClient({ url });
+  openClients.push(client);
   const db = drizzle(client, { schema });
   await migrate(db, { migrationsFolder: "drizzle" });
   const [u] = await db.insert(users).values({ email: "u@t.com", passwordHash: "x" }).returning().all();

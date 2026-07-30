@@ -1,5 +1,5 @@
-import { describe, it, expect, afterEach } from "vitest";
-import { createClient } from "@libsql/client";
+import { describe, it, expect, afterEach, afterAll } from "vitest";
+import { createClient, type Client } from "@libsql/client";
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -8,28 +8,47 @@ import { runMigrations } from "./migrate";
 const REAL_DRIZZLE_DIR = "drizzle";
 const REBUILD_MIGRATION_TAG = "0003_lying_sunspot";
 
-const tempDirs: string[] = [];
+// One shared temp root for the whole file (not one mkdtemp per test) and one
+// sweep at the very end, not per test -- see the afterAll comment below for
+// why. Each caller of makeTempDir gets its own uniquely-named subdirectory.
+const testRoot = mkdtempSync(join(tmpdir(), "migrate-fk-test-"));
+let dirCounter = 0;
 function makeTempDir(prefix: string): string {
-  const dir = mkdtempSync(join(tmpdir(), prefix));
-  tempDirs.push(dir);
+  const dir = join(testRoot, `${prefix}${dirCounter++}`);
+  mkdirSync(dir, { recursive: true });
   return dir;
 }
+
+// Every client opened anywhere in this file's test bodies is registered here
+// so afterEach can close it unconditionally, even if a test throws midway
+// and never reaches its own explicit .close() call.
+const openClients: Client[] = [];
+function openClient(url: string): Client {
+  const client = createClient({ url });
+  openClients.push(client);
+  return client;
+}
 afterEach(() => {
-  while (tempDirs.length) {
-    const dir = tempDirs.pop()!;
-    try {
-      rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
-    } catch (err) {
-      // On Windows, @libsql/client's local-file backend can hold the
-      // sqlite file handle open for a moment after close() returns, which
-      // occasionally makes the OS refuse to remove the freshly-closed temp
-      // directory even after fs.rmSync's own retry/backoff. This is a
-      // best-effort cleanup of an OS temp dir, not part of the test's
-      // assertions -- a transient handle lock here must not fail the
-      // suite. Anything other than that known lock error still surfaces.
-      const code = (err as NodeJS.ErrnoException).code;
-      if (code !== "EPERM" && code !== "EBUSY") throw err;
-    }
+  while (openClients.length) openClients.pop()!.close();
+});
+
+afterAll(() => {
+  try {
+    rmSync(testRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  } catch (err) {
+    // Measured during Task 5 review, with a standalone probe outside
+    // vitest: on this Windows machine, a freshly-used local sqlite file
+    // under @libsql/client is frequently NOT removable immediately after
+    // client.close(), in every combination tried (with/without a
+    // db.transaction, with/without an explicit close()). It is not a rare,
+    // transient race -- closing the client is correct regardless, but does
+    // not reliably make the file removable soon after. Sweeping once here
+    // (instead of once per test, as before) only reduces how often this is
+    // hit; it does not eliminate it. When removal fails, the OS reclaims
+    // the temp directory on its own -- nothing in this repo depends on it
+    // being removed synchronously.
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code !== "EPERM" && code !== "EBUSY") throw err;
   }
 });
 
@@ -82,9 +101,8 @@ function fileUrl(path: string): string {
 }
 
 async function rowCount(url: string, table: string): Promise<number> {
-  const client = createClient({ url });
+  const client = openClient(url);
   const rs = await client.execute(`SELECT COUNT(*) AS c FROM ${table}`);
-  client.close();
   return Number(rs.rows[0].c);
 }
 
@@ -103,7 +121,7 @@ describe("runMigrations", () => {
     // Phase 2: seed populated data the way the running app would have:
     // an admin with a profile, a second user with a profile and a pending
     // verification code, and an event referencing a user.
-    const seedClient = createClient({ url: dbUrl });
+    const seedClient = openClient(dbUrl);
     const now = Date.now();
     await seedClient.execute({
       sql: `INSERT INTO users (id, email, password_hash, email_verified, created_at) VALUES (1, 'admin@x.local', 'hash1', 1, ?)`,
@@ -123,7 +141,6 @@ describe("runMigrations", () => {
       sql: `INSERT INTO events (user_id, type, created_at) VALUES (1, 'login', ?)`,
       args: [now],
     });
-    seedClient.close();
 
     const before = {
       users: await rowCount(dbUrl, "users"),
@@ -144,10 +161,9 @@ describe("runMigrations", () => {
       verificationCodes: await rowCount(dbUrl, "verification_codes"),
       events: await rowCount(dbUrl, "events"),
     };
-    const afterClient = createClient({ url: dbUrl });
+    const afterClient = openClient(dbUrl);
     const eventRs = await afterClient.execute(`SELECT user_id FROM events WHERE id = 1`);
     const eventUserId = eventRs.rows[0].user_id as number | null;
-    afterClient.close();
 
     // These would read profiles: 0, verificationCodes: 0, eventUserId: null
     // if FK enforcement were ON while the rebuild's DROP TABLE ran.
