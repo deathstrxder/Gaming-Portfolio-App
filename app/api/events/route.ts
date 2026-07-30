@@ -21,7 +21,7 @@ export async function POST(request: Request) {
   const { device, browser, os } = parseUA(request.headers.get("user-agent"));
   const session = await getSession();
 
-  db.insert(events)
+  await db.insert(events)
     .values({
       userId: session.userId ?? null,
       type: parsed.data.type,

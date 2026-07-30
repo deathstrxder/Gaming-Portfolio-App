@@ -1,11 +1,10 @@
-import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
-import { mkdirSync } from "node:fs";
-import { dirname } from "node:path";
-import { seedAdmin } from "../lib/db/seed";
+import { createClient } from "@libsql/client";
+import { drizzle } from "drizzle-orm/libsql";
 import { readFileSync } from "node:fs";
+import { seedAdmin } from "../lib/db/seed";
 
-// Load .env.local (tsx doesn't auto-load it) so ADMIN_PASSWORD is available.
+// Load .env.local (tsx doesn't auto-load it) so ADMIN_PASSWORD and the Turso
+// credentials are available.
 try {
   for (const line of readFileSync(".env.local", "utf8").split("\n")) {
     const m = line.match(/^([A-Z0-9_]+)=(.*)$/);
@@ -15,10 +14,21 @@ try {
   // no .env.local — seedAdmin will throw a clear error if ADMIN_PASSWORD is unset
 }
 
-const dbPath = process.env.DATABASE_PATH || "data/app.db";
-mkdirSync(dirname(dbPath), { recursive: true });
-const sqlite = new Database(dbPath);
-sqlite.pragma("foreign_keys = ON");
-const res = seedAdmin(drizzle(sqlite));
-console.log(res.created ? "Admin account created." : "Admin already exists; skipped.");
-sqlite.close();
+// Wrapped in main() rather than using top-level await: package.json has no
+// "type": "module", so tsx transforms this file as CJS and a top-level await
+// is a hard transform error. Matches the entry pattern in build-stats.ts.
+async function main() {
+  const url = process.env.TURSO_DATABASE_URL ?? `file:${process.env.DATABASE_PATH ?? "data/app.db"}`;
+  const client = createClient({ url, authToken: process.env.TURSO_AUTH_TOKEN });
+  try {
+    const res = await seedAdmin(drizzle(client));
+    console.log(res.created ? "Admin account created." : "Admin already exists; skipped.");
+  } finally {
+    client.close();
+  }
+}
+
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

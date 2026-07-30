@@ -78,7 +78,9 @@ export function AuthPanel() {
   }, []);
 
   useEffect(() => {
-    Promise.resolve().then(() => {
+    // Deferred to a microtask so replaceState does not run during the commit
+    // phase; deliberately fire-and-forget, hence the void.
+    void Promise.resolve().then(() => {
       const params = new URLSearchParams(window.location.search);
       if (params.get("error") === "oauth") {
         setError("Google sign-in failed. Please try again.");

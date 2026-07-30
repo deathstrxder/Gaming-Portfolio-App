@@ -9,6 +9,6 @@ export const dynamic = "force-dynamic";
 export default async function AccountPage() {
   const session = await getSession();
   if (!session.userId) redirect("/");
-  const user = getUserById(db, session.userId);
+  const user = await getUserById(db, session.userId);
   return <AccountScreen hasPassword={user?.passwordHash != null} />;
 }

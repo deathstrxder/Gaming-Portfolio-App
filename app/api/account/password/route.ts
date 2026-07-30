@@ -21,12 +21,12 @@ export async function POST(request: Request) {
     return Response.json({ error: "weak_password" }, { status: 400 });
   }
 
-  const user = getUserById(db, session.userId);
+  const user = await getUserById(db, session.userId);
   if (!user) return Response.json({ error: "unauthenticated" }, { status: 401 });
 
   // Google-only account (no password yet): set an initial password directly.
   if (user.passwordHash === null) {
-    setPassword(db, session.userId, parsed.data.newPassword);
+    await setPassword(db, session.userId, parsed.data.newPassword);
     return Response.json({ ok: true });
   }
 
@@ -34,7 +34,7 @@ export async function POST(request: Request) {
   if (!parsed.data.currentPassword) {
     return Response.json({ error: "wrong_password" }, { status: 403 });
   }
-  const res = changePassword(
+  const res = await changePassword(
     db,
     session.userId,
     parsed.data.currentPassword,

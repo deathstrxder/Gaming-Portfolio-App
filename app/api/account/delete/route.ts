@@ -8,7 +8,7 @@ export async function POST() {
   const session = await getSession();
   if (!session.userId) return Response.json({ error: "unauthenticated" }, { status: 401 });
 
-  deleteUser(db, session.userId);
+  await deleteUser(db, session.userId);
   session.destroy();
   return Response.json({ ok: true });
 }

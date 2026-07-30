@@ -66,18 +66,23 @@ export function AdminDashboard() {
   }
 
   useEffect(() => {
-    getJson<Traffic>("/api/admin/traffic").then(setTraffic);
-    getJson<Analytics>("/api/admin/analytics").then(setAnalytics);
-    getJson<{ users: AdminUser[] }>("/api/admin/users").then((d) => setUsers(d?.users ?? []));
+    // getJson resolves to null on a non-ok response but rejects if the request
+    // itself fails, so each catch maps a network failure onto the same empty
+    // state the non-ok path already produces.
+    getJson<Traffic>("/api/admin/traffic").then(setTraffic).catch(() => setTraffic(null));
+    getJson<Analytics>("/api/admin/analytics").then(setAnalytics).catch(() => setAnalytics(null));
+    getJson<{ users: AdminUser[] }>("/api/admin/users")
+      .then((d) => setUsers(d?.users ?? []))
+      .catch(() => setUsers([]));
   }, []);
 
   async function del(userId: number) {
     await postJson("/api/admin/users/delete", { userId });
-    refreshUsers();
+    await refreshUsers();
   }
   async function sub(userId: number, action: string) {
     await postJson("/api/admin/users/subscription", { userId, action, months: 1 });
-    refreshUsers();
+    await refreshUsers();
   }
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });

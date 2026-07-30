@@ -19,11 +19,11 @@ export async function POST(request: Request) {
   const { identifier, password, remember = false } = parsed.data;
   const email = identifier === ADMIN_USERNAME ? ADMIN_EMAIL : identifier.toLowerCase();
 
-  const user = verifyCredentials(db, email, password);
+  const user = await verifyCredentials(db, email, password);
   if (!user) return Response.json({ error: "bad_credentials" }, { status: 401 });
   if (!user.emailVerified) return Response.json({ error: "unverified" }, { status: 403 });
 
-  const profile = getProfile(db, user.id);
+  const profile = await getProfile(db, user.id);
   const session = await getSession(loginSessionOptions(remember));
   session.userId = user.id;
   session.role = profile?.role ?? "user";
