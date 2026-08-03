@@ -432,10 +432,28 @@ html {
    only on band crossings and the transition runs on the compositor.
    The per-instance `--enter` / `--leave` offsets are set inline by the
    component (they encode `from` and `exit`).
+   `.reveal-root`   → observed wrapper; never transformed (see below)
    `.reveal`        → fades AND slides (no backdrop)
    `.reveal-slide`  → slides only (outer element, carries the backdrop)
    `.reveal-fade`   → fades only  (inner element, over the backdrop)
    ============================================================ */
+
+/* The observer measures the *transformed* box, so the observed element must never
+   be one that moves — otherwise the leave offset can shove the element back into
+   the band it just left, which re-shows it, which removes the offset, which pushes
+   it out again: a frame-rate oscillation. `.reveal-root` holds the layout box the
+   observer watches; its single child does the moving.
+
+   `display: grid` is what makes the wrapper transparent to layout. The wrapper
+   sizes exactly as the moving element used to — content height under `items-center`
+   or in normal flow, full cell height when a grid/flex parent stretches it — and its
+   lone child stretches to match either way, so `h-full` inside a card still resolves
+   against the row height and cards in a row stay equal height. A plain block wrapper
+   gets one of those two cases wrong whichever way its height is declared. */
+.reveal-root {
+  display: grid;
+}
+
 .reveal,
 .reveal-slide,
 .reveal-fade {

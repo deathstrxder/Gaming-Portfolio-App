@@ -24,6 +24,14 @@ const OFFSET = 120;
  * there's no per-frame scroll work, and cards that share a grid row cross together,
  * so they fade in sync.
  *
+ * The observed element (`.reveal-root`) is deliberately NOT the element that moves:
+ * an IntersectionObserver measures the *transformed* box, so observing the moving
+ * element feeds the animation back into the observer that drives it. An element
+ * leaving toward `origin` from `up` is translated 120px back down — into the band it
+ * just left — which flips it to "visible", which drops the transform, which pushes it
+ * out of the band again, ad infinitum: a frame-rate oscillation that reads as violent
+ * jitter while scrolling past. Keep the measured box and the moving box separate.
+ *
  * Reduced-motion and no-JS are handled in CSS (globals.css + the layout <noscript>),
  * so content shows immediately and is never stranded invisible.
  */
@@ -90,20 +98,23 @@ export function Reveal({
   // slides and carries an opaque backdrop that never fades, while only the inner one
   // fades. A solid surface therefore sits behind the content the whole time, so the
   // background can't bleed through while the content is mid-fade.
-  if (backdrop) {
-    return (
-      <div ref={ref} style={style} className={`reveal-slide relative${state} ${className ?? ""}`}>
-        <div className={`pointer-events-none absolute inset-0 ${backdrop}`} aria-hidden />
-        <div className={`reveal-fade relative h-full${phase === "visible" ? " is-visible" : ""}`}>
+  //
+  // `className` stays on the moving element — it is the children's direct parent, so
+  // layout classes callers pass (`flex flex-col gap-10`, `h-full`) must apply there.
+  return (
+    <div ref={ref} className="reveal-root">
+      {backdrop ? (
+        <div style={style} className={`reveal-slide relative${state} ${className ?? ""}`}>
+          <div className={`pointer-events-none absolute inset-0 ${backdrop}`} aria-hidden />
+          <div className={`reveal-fade relative h-full${phase === "visible" ? " is-visible" : ""}`}>
+            {children}
+          </div>
+        </div>
+      ) : (
+        <div style={style} className={`reveal${state} ${className ?? ""}`}>
           {children}
         </div>
-      </div>
-    );
-  }
-
-  return (
-    <div ref={ref} style={style} className={`reveal${state} ${className ?? ""}`}>
-      {children}
+      )}
     </div>
   );
 }
