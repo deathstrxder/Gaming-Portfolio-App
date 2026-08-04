@@ -14,6 +14,6 @@ export async function POST(request: Request) {
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return Response.json({ error: "invalid_input" }, { status: 400 });
 
-  setBirthday(db, session.userId, parsed.data.birthday);
+  await setBirthday(db, session.userId, parsed.data.birthday);
   return Response.json({ ok: true });
 }

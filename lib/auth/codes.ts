@@ -10,21 +10,23 @@ export function generateCode(): string {
   return String(randomInt(0, 1_000_000)).padStart(6, "0");
 }
 
-export function issueCode(db: AppDb, userId: number): string {
-  db.update(verificationCodes)
+export async function issueCode(db: AppDb, userId: number): Promise<string> {
+  await db
+    .update(verificationCodes)
     .set({ consumed: true })
     .where(and(eq(verificationCodes.userId, userId), eq(verificationCodes.consumed, false)))
     .run();
 
   const code = generateCode();
-  db.insert(verificationCodes)
+  await db
+    .insert(verificationCodes)
     .values({ userId, code, expiresAt: new Date(Date.now() + CODE_TTL_MS) })
     .run();
   return code;
 }
 
-export function verifyEmailCode(db: AppDb, userId: number, code: string): boolean {
-  const row = db
+export async function verifyEmailCode(db: AppDb, userId: number, code: string): Promise<boolean> {
+  const row = await db
     .select()
     .from(verificationCodes)
     .where(and(eq(verificationCodes.userId, userId), eq(verificationCodes.consumed, false)))
@@ -34,16 +36,21 @@ export function verifyEmailCode(db: AppDb, userId: number, code: string): boolea
 
   if (row.code !== code) {
     const attempts = row.attempts + 1;
-    db.update(verificationCodes)
+    await db
+      .update(verificationCodes)
       .set({ attempts, consumed: attempts >= MAX_ATTEMPTS })
       .where(eq(verificationCodes.id, row.id))
       .run();
     return false;
   }
 
-  db.transaction((tx) => {
-    tx.update(verificationCodes).set({ consumed: true }).where(eq(verificationCodes.id, row.id)).run();
-    tx.update(users).set({ emailVerified: true }).where(eq(users.id, userId)).run();
+  await db.transaction(async (tx) => {
+    await tx
+      .update(verificationCodes)
+      .set({ consumed: true })
+      .where(eq(verificationCodes.id, row.id))
+      .run();
+    await tx.update(users).set({ emailVerified: true }).where(eq(users.id, userId)).run();
   });
   return true;
 }

@@ -48,9 +48,9 @@ export async function GET(request: Request) {
 
   try {
     const email = claims.email.toLowerCase();
-    const { userId } = resolveGoogleUser(db, { email, googleId: claims.sub });
+    const { userId } = await resolveGoogleUser(db, { email, googleId: claims.sub });
 
-    const profile = getProfile(db, userId);
+    const profile = await getProfile(db, userId);
     const session = await getSession(loginSessionOptions(true)); // B1: 30-day persistent
     session.userId = userId;
     session.role = profile?.role ?? "user";

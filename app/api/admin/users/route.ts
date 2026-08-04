@@ -6,5 +6,5 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   if ((await requireAdmin()) === null) return Response.json({ error: "forbidden" }, { status: 403 });
-  return Response.json({ users: listAllUsers(db) });
+  return Response.json({ users: await listAllUsers(db) });
 }

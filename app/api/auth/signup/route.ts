@@ -17,9 +17,9 @@ export async function POST(request: Request) {
     return Response.json({ error: "weak_password" }, { status: 400 });
   }
 
-  const res = createUnverifiedUser(db, email, parsed.data.password);
+  const res = await createUnverifiedUser(db, email, parsed.data.password);
   if (!res.ok) return Response.json({ error: res.error }, { status: 409 });
 
-  const code = issueCode(db, res.userId);
+  const code = await issueCode(db, res.userId);
   return Response.json({ userId: res.userId, code }, { status: 201 });
 }

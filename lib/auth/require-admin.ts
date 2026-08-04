@@ -7,6 +7,6 @@ import { getSession } from "./session";
 export async function requireAdmin(): Promise<number | null> {
   const session = await getSession();
   if (!session.userId) return null;
-  const profile = getProfile(db, session.userId);
+  const profile = await getProfile(db, session.userId);
   return profile?.role === "admin" ? session.userId : null;
 }

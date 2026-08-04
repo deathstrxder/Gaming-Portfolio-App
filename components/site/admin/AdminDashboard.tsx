@@ -31,9 +31,6 @@ interface AdminUser {
   birthday: string | null;
   subscriptionStatus: string;
   subscriptionExpiresAt: string | null;
-  paymentLast4: string | null;
-  paymentBrand: string | null;
-  paymentAttempted: boolean;
   role: string;
 }
 
@@ -69,18 +66,23 @@ export function AdminDashboard() {
   }
 
   useEffect(() => {
-    getJson<Traffic>("/api/admin/traffic").then(setTraffic);
-    getJson<Analytics>("/api/admin/analytics").then(setAnalytics);
-    getJson<{ users: AdminUser[] }>("/api/admin/users").then((d) => setUsers(d?.users ?? []));
+    // getJson resolves to null on a non-ok response but rejects if the request
+    // itself fails, so each catch maps a network failure onto the same empty
+    // state the non-ok path already produces.
+    getJson<Traffic>("/api/admin/traffic").then(setTraffic).catch(() => setTraffic(null));
+    getJson<Analytics>("/api/admin/analytics").then(setAnalytics).catch(() => setAnalytics(null));
+    getJson<{ users: AdminUser[] }>("/api/admin/users")
+      .then((d) => setUsers(d?.users ?? []))
+      .catch(() => setUsers([]));
   }, []);
 
   async function del(userId: number) {
     await postJson("/api/admin/users/delete", { userId });
-    refreshUsers();
+    await refreshUsers();
   }
   async function sub(userId: number, action: string) {
     await postJson("/api/admin/users/subscription", { userId, action, months: 1 });
-    refreshUsers();
+    await refreshUsers();
   }
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -157,7 +159,6 @@ export function AdminDashboard() {
                     <th className="p-2">Password</th>
                     <th className="p-2">Region</th>
                     <th className="p-2">Birthday</th>
-                    <th className="p-2">Payment</th>
                     <th className="p-2">Subscription</th>
                     <th className="p-2">Actions</th>
                   </tr>
@@ -170,7 +171,6 @@ export function AdminDashboard() {
                       <td className="p-2 text-muted/60">hashed — not viewable</td>
                       <td className="p-2">{u.location ?? "—"}</td>
                       <td className="p-2">{u.birthday ?? "—"}</td>
-                      <td className="p-2">{u.paymentAttempted ? `${u.paymentBrand ?? "Card"} ••${u.paymentLast4 ?? "????"}` : "—"}</td>
                       <td className="p-2">
                         {u.subscriptionStatus}
                         {u.subscriptionExpiresAt ? <span className="block text-muted/60">until {new Date(u.subscriptionExpiresAt).toLocaleDateString()}</span> : null}

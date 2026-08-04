@@ -57,11 +57,13 @@ export function AuthPanel() {
   const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [role, setRole] = useState<string | null>(null);
+  const [googleEnabled, setGoogleEnabled] = useState(false);
 
   useEffect(() => {
     fetch("/api/auth/me")
       .then((r) => r.json())
       .then((d) => {
+        setGoogleEnabled(Boolean(d.googleEnabled));
         if (d.user && d.user.username) {
           setDisplayName(d.user.username);
           setRole(d.user.role);
@@ -76,7 +78,9 @@ export function AuthPanel() {
   }, []);
 
   useEffect(() => {
-    Promise.resolve().then(() => {
+    // Deferred to a microtask so replaceState does not run during the commit
+    // phase; deliberately fire-and-forget, hence the void.
+    void Promise.resolve().then(() => {
       const params = new URLSearchParams(window.location.search);
       if (params.get("error") === "oauth") {
         setError("Google sign-in failed. Please try again.");
@@ -181,7 +185,7 @@ export function AuthPanel() {
             <input className={inputClass} type="password" placeholder="Confirm password" value={confirm}
               onChange={(e) => setConfirm(e.target.value)} required autoComplete="new-password" />
             <Button type="submit" disabled={busy}>{busy ? "Creating…" : "Sign up"}</Button>
-            <GoogleAuthOptions />
+            {googleEnabled ? <GoogleAuthOptions /> : null}
             <button type="button" className="font-body text-sm text-muted underline underline-offset-4 hover:text-neon-blue"
               onClick={() => { setError(null); setStep("login"); }}>
               Already have an account? Login instead!
@@ -201,7 +205,7 @@ export function AuthPanel() {
               Remember me
             </label>
             <Button type="submit" disabled={busy}>{busy ? "Logging in…" : "Log in"}</Button>
-            <GoogleAuthOptions />
+            {googleEnabled ? <GoogleAuthOptions /> : null}
             <button type="button" className="font-body text-sm text-muted underline underline-offset-4 hover:text-neon-blue"
               onClick={() => { setError(null); setStep("signup"); }}>
               Need an account? Sign up instead!

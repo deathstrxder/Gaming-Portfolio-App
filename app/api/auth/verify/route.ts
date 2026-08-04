@@ -12,11 +12,11 @@ export async function POST(request: Request) {
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return Response.json({ error: "invalid_input" }, { status: 400 });
 
-  if (!verifyEmailCode(db, parsed.data.userId, parsed.data.code)) {
+  if (!(await verifyEmailCode(db, parsed.data.userId, parsed.data.code))) {
     return Response.json({ error: "bad_code" }, { status: 400 });
   }
 
-  const profile = getProfile(db, parsed.data.userId);
+  const profile = await getProfile(db, parsed.data.userId);
   const session = await getSession();
   session.userId = parsed.data.userId;
   session.role = profile?.role ?? "user";

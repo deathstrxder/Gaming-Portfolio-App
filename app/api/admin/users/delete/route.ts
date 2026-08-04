@@ -13,6 +13,6 @@ export async function POST(request: Request) {
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return Response.json({ error: "invalid_input" }, { status: 400 });
   if (parsed.data.userId === adminId) return Response.json({ error: "cannot_delete_self" }, { status: 400 });
-  deleteUser(db, parsed.data.userId);
+  await deleteUser(db, parsed.data.userId);
   return Response.json({ ok: true });
 }

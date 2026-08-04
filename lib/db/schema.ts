@@ -26,11 +26,6 @@ export const profiles = sqliteTable("profiles", {
     .notNull()
     .default("none"),
   subscriptionExpiresAt: integer("subscription_expires_at", { mode: "timestamp" }),
-  paymentLast4: text("payment_last4"),
-  paymentBrand: text("payment_brand"),
-  paymentAttempted: integer("payment_attempted", { mode: "boolean" })
-    .notNull()
-    .default(false),
   role: text("role", { enum: ["user", "admin"] }).notNull().default("user"),
 });
 

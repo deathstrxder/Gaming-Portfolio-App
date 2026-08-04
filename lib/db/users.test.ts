@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
-import Database from "better-sqlite3";
+import { createClient } from "@libsql/client";
 import bcrypt from "bcryptjs";
-import { drizzle } from "drizzle-orm/better-sqlite3";
-import { migrate } from "drizzle-orm/better-sqlite3/migrator";
+import { drizzle } from "drizzle-orm/libsql";
+import { migrate } from "drizzle-orm/libsql/migrator";
 import { eq } from "drizzle-orm";
 import * as schema from "./schema";
 import { users } from "./schema";
@@ -15,176 +15,170 @@ import {
   changePassword,
   setBirthday,
   deleteUser,
-  recordPaymentAttempt,
   listAllUsers,
   modifySubscription,
   resolveGoogleUser,
   setPassword,
 } from "./users";
 
-function freshDb() {
-  const sqlite = new Database(":memory:");
-  sqlite.pragma("foreign_keys = ON");
-  const db = drizzle(sqlite, { schema });
-  migrate(db, { migrationsFolder: "drizzle" });
+async function freshDb() {
+  const client = createClient({ url: ":memory:" });
+  const db = drizzle(client, { schema });
+  await migrate(db, { migrationsFolder: "drizzle" });
   return db;
 }
 
 describe("createUnverifiedUser", () => {
-  it("creates a user with a hashed password and rejects duplicate emails", () => {
-    const db = freshDb();
-    const res = createUnverifiedUser(db, "a@b.com", "Abc1!x");
+  it("creates a user with a hashed password and rejects duplicate emails", async () => {
+    const db = await freshDb();
+    const res = await createUnverifiedUser(db, "a@b.com", "Abc1!x");
     expect(res.ok).toBe(true);
-    const dup = createUnverifiedUser(db, "a@b.com", "Abc1!x");
+    const dup = await createUnverifiedUser(db, "a@b.com", "Abc1!x");
     expect(dup).toEqual({ ok: false, error: "email_taken" });
   });
 });
 
 describe("verifyCredentials", () => {
-  it("returns the user for a correct password, null otherwise", () => {
-    const db = freshDb();
-    createUnverifiedUser(db, "a@b.com", "Abc1!x");
-    expect(verifyCredentials(db, "a@b.com", "Abc1!x")).not.toBeNull();
-    expect(verifyCredentials(db, "a@b.com", "wrong")).toBeNull();
-    expect(verifyCredentials(db, "missing@b.com", "Abc1!x")).toBeNull();
+  it("returns the user for a correct password, null otherwise", async () => {
+    const db = await freshDb();
+    await createUnverifiedUser(db, "a@b.com", "Abc1!x");
+    expect(await verifyCredentials(db, "a@b.com", "Abc1!x")).not.toBeNull();
+    expect(await verifyCredentials(db, "a@b.com", "wrong")).toBeNull();
+    expect(await verifyCredentials(db, "missing@b.com", "Abc1!x")).toBeNull();
   });
 });
 
 describe("credential guards for passwordless (Google-only) users", () => {
-  it("verifyCredentials returns null when the account has no password", () => {
-    const db = freshDb();
-    db.insert(users).values({ email: "g@x.com", googleId: "google-1", emailVerified: true }).run();
-    expect(verifyCredentials(db, "g@x.com", "anything")).toBeNull();
+  it("verifyCredentials returns null when the account has no password", async () => {
+    const db = await freshDb();
+    await db.insert(users).values({ email: "g@x.com", googleId: "google-1", emailVerified: true }).run();
+    expect(await verifyCredentials(db, "g@x.com", "anything")).toBeNull();
   });
 
-  it("changePassword refuses when the account has no existing password", () => {
-    const db = freshDb();
-    const [u] = db
+  it("changePassword refuses when the account has no existing password", async () => {
+    const db = await freshDb();
+    const [u] = await db
       .insert(users)
       .values({ email: "g@x.com", googleId: "google-1", emailVerified: true })
       .returning()
       .all();
-    const res = changePassword(db, u.id, "whatever", "Abc1!xyz");
+    const res = await changePassword(db, u.id, "whatever", "Abc1!xyz");
     expect(res).toEqual({ ok: false, error: "wrong_password" });
     // and the hash is still null (no password was set)
-    const after = db.select().from(users).where(eq(users.id, u.id)).get();
+    const after = await db.select().from(users).where(eq(users.id, u.id)).get();
     expect(after?.passwordHash).toBeNull();
   });
 });
 
 describe("setUsername", () => {
-  it("creates a profile, then rejects a taken username", () => {
-    const db = freshDb();
-    const a = createUnverifiedUser(db, "a@b.com", "Abc1!x");
-    const b = createUnverifiedUser(db, "b@b.com", "Abc1!x");
+  it("creates a profile, then rejects a taken username", async () => {
+    const db = await freshDb();
+    const a = await createUnverifiedUser(db, "a@b.com", "Abc1!x");
+    const b = await createUnverifiedUser(db, "b@b.com", "Abc1!x");
     if (!a.ok || !b.ok) throw new Error("setup failed");
 
-    expect(setUsername(db, a.userId, "neo")).toEqual({ ok: true });
-    expect(getProfile(db, a.userId)!.username).toBe("neo");
-    expect(setUsername(db, b.userId, "neo")).toEqual({ ok: false, error: "username_taken" });
+    expect(await setUsername(db, a.userId, "neo")).toEqual({ ok: true });
+    expect((await getProfile(db, a.userId))!.username).toBe("neo");
+    expect(await setUsername(db, b.userId, "neo")).toEqual({ ok: false, error: "username_taken" });
   });
 });
 
 describe("account services", () => {
-  it("changePassword rejects a wrong current password and updates on the right one", () => {
-    const db = freshDb();
-    const a = createUnverifiedUser(db, "a@b.com", "Abc1!x");
+  it("changePassword rejects a wrong current password and updates on the right one", async () => {
+    const db = await freshDb();
+    const a = await createUnverifiedUser(db, "a@b.com", "Abc1!x");
     if (!a.ok) throw new Error("setup");
-    expect(changePassword(db, a.userId, "wrong", "New1!pass")).toEqual({ ok: false, error: "wrong_password" });
-    expect(changePassword(db, a.userId, "Abc1!x", "New1!pass")).toEqual({ ok: true });
-    const u = getUserById(db, a.userId)!;
+    expect(await changePassword(db, a.userId, "wrong", "New1!pass")).toEqual({ ok: false, error: "wrong_password" });
+    expect(await changePassword(db, a.userId, "Abc1!x", "New1!pass")).toEqual({ ok: true });
+    const u = (await getUserById(db, a.userId))!;
     expect(bcrypt.compareSync("New1!pass", u.passwordHash!)).toBe(true);
   });
 
-  it("setBirthday and recordPaymentAttempt update the profile", () => {
-    const db = freshDb();
-    const a = createUnverifiedUser(db, "a@b.com", "Abc1!x");
+  it("setBirthday updates the profile", async () => {
+    const db = await freshDb();
+    const a = await createUnverifiedUser(db, "a@b.com", "Abc1!x");
     if (!a.ok) throw new Error("setup");
-    setUsername(db, a.userId, "neo");
-    setBirthday(db, a.userId, "1999-05-01");
-    recordPaymentAttempt(db, a.userId, "4242", "Visa");
-    const p = getProfile(db, a.userId)!;
+    await setUsername(db, a.userId, "neo");
+    await setBirthday(db, a.userId, "1999-05-01");
+    const p = (await getProfile(db, a.userId))!;
     expect(p.birthday).toBe("1999-05-01");
-    expect(p.paymentAttempted).toBe(true);
-    expect(p.paymentLast4).toBe("4242");
-    expect(p.paymentBrand).toBe("Visa");
   });
 
-  it("deleteUser removes the user and cascades the profile", () => {
-    const db = freshDb();
-    const a = createUnverifiedUser(db, "a@b.com", "Abc1!x");
+  it("deleteUser removes the user and cascades the profile", async () => {
+    const db = await freshDb();
+    const a = await createUnverifiedUser(db, "a@b.com", "Abc1!x");
     if (!a.ok) throw new Error("setup");
-    setUsername(db, a.userId, "neo");
-    deleteUser(db, a.userId);
-    expect(getUserById(db, a.userId)).toBeUndefined();
-    expect(getProfile(db, a.userId)).toBeUndefined();
+    await setUsername(db, a.userId, "neo");
+    await deleteUser(db, a.userId);
+    expect(await getUserById(db, a.userId)).toBeUndefined();
+    expect(await getProfile(db, a.userId)).toBeUndefined();
   });
 });
 
 describe("resolveGoogleUser", () => {
-  it("creates a new passwordless, verified user when nothing matches", () => {
-    const db = freshDb();
-    const res = resolveGoogleUser(db, { email: "new@x.com", googleId: "g-new" });
+  it("creates a new passwordless, verified user when nothing matches", async () => {
+    const db = await freshDb();
+    const res = await resolveGoogleUser(db, { email: "new@x.com", googleId: "g-new" });
     expect(res.outcome).toBe("created");
-    const u = getUserById(db, res.userId);
+    const u = await getUserById(db, res.userId);
     expect(u?.email).toBe("new@x.com");
     expect(u?.googleId).toBe("g-new");
     expect(u?.emailVerified).toBe(true);
     expect(u?.passwordHash).toBeNull();
   });
 
-  it("links googleId onto an existing password account with the same email", () => {
-    const db = freshDb();
-    const created = createUnverifiedUser(db, "existing@x.com", "Abc1!xy");
+  it("links googleId onto an existing password account with the same email", async () => {
+    const db = await freshDb();
+    const created = await createUnverifiedUser(db, "existing@x.com", "Abc1!xy");
     if (!created.ok) throw new Error("setup failed");
-    const res = resolveGoogleUser(db, { email: "existing@x.com", googleId: "g-link" });
+    const res = await resolveGoogleUser(db, { email: "existing@x.com", googleId: "g-link" });
     expect(res.outcome).toBe("linked");
     expect(res.userId).toBe(created.userId);
-    expect(getUserById(db, created.userId)?.googleId).toBe("g-link");
+    expect((await getUserById(db, created.userId))?.googleId).toBe("g-link");
   });
 
-  it("returns the existing user when the googleId is already known", () => {
-    const db = freshDb();
-    const first = resolveGoogleUser(db, { email: "again@x.com", googleId: "g-same" });
-    const second = resolveGoogleUser(db, { email: "again@x.com", googleId: "g-same" });
+  it("returns the existing user when the googleId is already known", async () => {
+    const db = await freshDb();
+    const first = await resolveGoogleUser(db, { email: "again@x.com", googleId: "g-same" });
+    const second = await resolveGoogleUser(db, { email: "again@x.com", googleId: "g-same" });
     expect(second.outcome).toBe("existing");
     expect(second.userId).toBe(first.userId);
   });
 });
 
 describe("setPassword", () => {
-  it("sets a usable password on a previously passwordless account", () => {
-    const db = freshDb();
-    const { userId } = resolveGoogleUser(db, { email: "g@x.com", googleId: "g-1" });
-    setPassword(db, userId, "Abc1!xyz");
-    expect(verifyCredentials(db, "g@x.com", "Abc1!xyz")).not.toBeNull();
+  it("sets a usable password on a previously passwordless account", async () => {
+    const db = await freshDb();
+    const { userId } = await resolveGoogleUser(db, { email: "g@x.com", googleId: "g-1" });
+    await setPassword(db, userId, "Abc1!xyz");
+    expect(await verifyCredentials(db, "g@x.com", "Abc1!xyz")).not.toBeNull();
   });
 });
 
 describe("admin services", () => {
-  it("listAllUsers returns joined rows without a password field", () => {
-    const db = freshDb();
-    const a = createUnverifiedUser(db, "a@b.com", "Abc1!x");
+  it("listAllUsers returns joined rows without a password field", async () => {
+    const db = await freshDb();
+    const a = await createUnverifiedUser(db, "a@b.com", "Abc1!x");
     if (!a.ok) throw new Error("setup");
-    setUsername(db, a.userId, "neo");
-    const rows = listAllUsers(db);
+    await setUsername(db, a.userId, "neo");
+    const rows = await listAllUsers(db);
     expect(rows.length).toBe(1);
     expect(rows[0].email).toBe("a@b.com");
     expect(rows[0].username).toBe("neo");
     expect("passwordHash" in rows[0]).toBe(false);
   });
 
-  it("modifySubscription add → active with a future expiry; remove → none", () => {
-    const db = freshDb();
-    const a = createUnverifiedUser(db, "a@b.com", "Abc1!x");
+  it("modifySubscription add → active with a future expiry; remove → none", async () => {
+    const db = await freshDb();
+    const a = await createUnverifiedUser(db, "a@b.com", "Abc1!x");
     if (!a.ok) throw new Error("setup");
-    setUsername(db, a.userId, "neo");
-    modifySubscription(db, a.userId, "add", 2);
-    let p = getProfile(db, a.userId)!;
+    await setUsername(db, a.userId, "neo");
+    await modifySubscription(db, a.userId, "add", 2);
+    let p = (await getProfile(db, a.userId))!;
     expect(p.subscriptionStatus).toBe("active");
     expect(p.subscriptionExpiresAt!.getTime()).toBeGreaterThan(Date.now());
-    modifySubscription(db, a.userId, "remove");
-    p = getProfile(db, a.userId)!;
+    await modifySubscription(db, a.userId, "remove");
+    p = (await getProfile(db, a.userId))!;
     expect(p.subscriptionStatus).toBe("none");
     expect(p.subscriptionExpiresAt).toBeNull();
   });

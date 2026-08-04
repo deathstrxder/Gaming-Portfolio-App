@@ -29,6 +29,13 @@
       "when": 1784241327388,
       "tag": "0003_lying_sunspot",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1785356864042,
+      "tag": "0004_soft_power_man",
+      "breakpoints": true
     }
   ]
 }

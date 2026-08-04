@@ -1,0 +1,74 @@
+import Image from "next/image";
+
+import { getLiveStats } from "@/lib/stats/read";
+import { formatCount, formatRelativeTime } from "@/lib/stats/format";
+import { Reveal } from "@/components/site/Reveal";
+
+export async function ClipsRow() {
+  const stats = await getLiveStats();
+  const youtube = stats.providers.youtube;
+  if (!youtube?.data) return null;
+
+  // The API omits `thumbnails.medium` for private, deleted, or live-stream
+  // entries, which the provider maps to an empty string (see
+  // lib/stats/providers/youtube.ts). Skip those rather than rendering an
+  // <Image src=""> — an empty src re-requests the current document in some
+  // browsers instead of simply failing to load.
+  const videos = youtube.data.videos.filter((video) => video.thumbnail !== "");
+  if (videos.length === 0) return null;
+
+  // The channel can have fewer uploads than the four-across grid assumes. Left
+  // as a fixed four-track grid, two clips strand against the left edge of a
+  // 120rem container, so both the track count and the grid's own width follow
+  // the item count and the row stays centred.
+  const layout =
+    videos.length >= 4
+      ? "sm:grid-cols-2 lg:grid-cols-4"
+      : videos.length === 3
+        ? "mx-auto max-w-6xl sm:grid-cols-2 lg:grid-cols-3"
+        : videos.length === 2
+          ? "mx-auto max-w-5xl sm:grid-cols-2"
+          : "mx-auto max-w-md";
+
+  return (
+    <section
+      id="clips"
+      className="mx-auto w-full max-w-[120rem] px-6 pb-16 pt-24 sm:px-10"
+    >
+      <Reveal from="up">
+        <h2 className="font-display text-6xl font-bold tracking-tight text-ink text-glow-blue sm:text-7xl">
+          Latest Clips
+        </h2>
+      </Reveal>
+
+      <div className={`mt-12 grid grid-cols-1 gap-8 ${layout}`}>
+        {videos.map((video) => (
+          <Reveal key={video.id} from="up">
+            <a
+              href={`https://www.youtube.com/watch?v=${video.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hud-corners group block h-full bg-bg-elev/60 p-4 transition-colors hover:bg-bg-elev"
+            >
+              <div className="relative aspect-video w-full overflow-hidden">
+                <Image
+                  src={video.thumbnail}
+                  alt=""
+                  fill
+                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                  className="object-cover transition-transform duration-500 group-hover:scale-105"
+                />
+              </div>
+              <h3 className="mt-4 line-clamp-2 font-body text-lg leading-snug text-ink/90">
+                {video.title}
+              </h3>
+              <p className="mt-2 font-body text-sm uppercase tracking-[0.15em] text-muted">
+                {formatCount(video.views)} views · {formatRelativeTime(video.publishedAt)}
+              </p>
+            </a>
+          </Reveal>
+        ))}
+      </div>
+    </section>
+  );
+}
