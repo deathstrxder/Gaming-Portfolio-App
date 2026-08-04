@@ -141,14 +141,14 @@ export function NavBar() {
         }`}
       >
         {/* The bar stops short of the hero's top-right social icons, which sit on the
-            same line at the same inset (see SocialLinks). That rail is 9rem wide — two
-            4rem-plus-border icon buttons and the 0.75rem gap between them — so the cap
-            is the left/right insets (2rem, 3rem at sm) plus 9rem of rail plus 1rem of
-            breathing room. Without it the bar unfurls to within 1rem of the right edge
-            and covers the Discord button, since the nav is z-40 against the icons' z-20.
-            Past this width the links scroll inside the bar rather than growing it, so
-            nothing becomes unreachable. */}
-        <div className="flex h-12 max-w-[calc(100vw-12rem)] items-center rounded-full border border-white/10 bg-bg/70 backdrop-blur-md box-glow-blue sm:max-w-[calc(100vw-13rem)]">
+            same line at the same inset (see SocialLinks). Those are stacked in a column,
+            so the rail is one button wide — 4rem plus its border, 66px — and the cap is
+            the left/right insets (2rem, 3rem at sm) plus that rail plus 1rem of breathing
+            room. Without a cap the bar unfurls to within 1rem of the right edge and covers
+            the Discord button, since the nav is z-40 against the icons' z-20. Past this
+            width the links scroll inside the bar rather than growing it, so nothing
+            becomes unreachable. */}
+        <div className="flex h-12 max-w-[calc(100vw-7.25rem)] items-center rounded-full border border-white/10 bg-bg/70 backdrop-blur-md box-glow-blue sm:max-w-[calc(100vw-8.25rem)]">
           <button
             ref={btnRef}
             type="button"

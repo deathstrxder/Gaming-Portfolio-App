@@ -26,21 +26,11 @@ export function SocialLinks() {
 
   return (
     <>
-      <div className="absolute right-4 top-4 z-20 flex items-center gap-3 sm:right-6 sm:top-6">
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          aria-label="Show my Discord username"
-          className={ICON_BUTTON}
-        >
-          <Image
-            src="/gaming/discord.png"
-            alt=""
-            width={40}
-            height={40}
-            className="h-10 w-10 object-contain drop-shadow-[0_0_10px_rgba(88,101,242,0.8)]"
-          />
-        </button>
+      {/* Stacked rather than side by side: the nav bar unfurls along this same line
+          from the left, so a one-button-wide rail leaves it 4rem more room before it
+          has to stop (see the max-width note in NavBar). YouTube leads because the
+          column reads top-down. */}
+      <div className="absolute right-4 top-4 z-20 flex flex-col items-center gap-3 sm:right-6 sm:top-6">
         <a
           href={YOUTUBE_URL}
           target="_blank"
@@ -56,6 +46,20 @@ export function SocialLinks() {
             className="h-10 w-10 object-contain drop-shadow-[0_0_10px_rgba(255,0,0,0.6)]"
           />
         </a>
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-label="Show my Discord username"
+          className={ICON_BUTTON}
+        >
+          <Image
+            src="/gaming/discord.png"
+            alt=""
+            width={40}
+            height={40}
+            className="h-10 w-10 object-contain drop-shadow-[0_0_10px_rgba(88,101,242,0.8)]"
+          />
+        </button>
       </div>
 
       <AnimatePresence>
