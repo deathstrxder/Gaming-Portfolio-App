@@ -1,5 +1,5 @@
 import { fileURLToPath } from "node:url";
-import { defineConfig } from "vitest/config";
+import { defaultExclude, defineConfig } from "vitest/config";
 
 // Mirrors the "@/*" -> "./*" path alias from tsconfig.json.
 // Vitest/Vite does not read tsconfig `paths` on its own; the officially
@@ -12,5 +12,11 @@ export default defineConfig({
     alias: {
       "@": fileURLToPath(new URL("./", import.meta.url)),
     },
+  },
+  test: {
+    // Vitest's default `include` matches *.spec.ts as well as *.test.ts, which would
+    // sweep up the Playwright specs in e2e/ and try to run them in the node pool.
+    // They need a browser and a server, so keep them to `npm run e2e`.
+    exclude: [...defaultExclude, "e2e/**"],
   },
 });

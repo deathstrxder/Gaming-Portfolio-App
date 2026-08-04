@@ -1,26 +1,36 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 
 import { NAV_SECTIONS } from "@/lib/games";
 import { useIntro } from "@/components/site/IntroContext";
 
 /**
- * Left-side floating HUD nav for the home page. Collapsed, it's a single hamburger
- * button in the top-left corner (mirroring the hero's top-right social icons — same
- * top offset and inset). Clicking it expands the bar horizontally to the right,
- * unfurling the original pill: a Home link, then one numbered link per section.
- * Native anchor scrolling (globals sets scroll-behavior: smooth) plus a scroll-spy
- * that glows whatever is in view — the active section stays highlighted in the bar.
- * Picking a section does NOT close the bar (so you can jump between sections); it
- * stays open until the user dismisses it via the hamburger, Escape, or a click-away.
+ * Left cabinet nav for the home page. Collapsed, it's a single hamburger button in the
+ * top-left corner; opening slides a full-height panel in from the left edge and dims
+ * the rest of the page behind it.
  *
- * The reveal is a grid 0fr→1fr expansion (clips to the hamburger when closed, settles
- * at the bar's natural width when open) so it animates open AND closed. The links stay
- * mounted for the collapse animation but are `inert` when closed, so they aren't
- * tabbable or announced. The button blinks in on the same timing as the hero's social
- * icons (shared `.intro-blink` class). Section ids/labels come from NAV_SECTIONS.
+ * A vertical cabinet is what lets the labels breathe. The previous horizontal bar
+ * unfurled rightward along the same line as the hero's top-right social icons, so its
+ * width was capped by whatever room the icons left — which clipped the longer labels
+ * and, three times running, collided with the icons outright. Stacking the links
+ * removes that competition rather than rebalancing it: the panel has a fixed width and
+ * the full viewport height, and never reaches the icons at all.
+ *
+ * Native anchor scrolling (globals sets scroll-behavior: smooth) plus a scroll-spy that
+ * glows whatever is in view. Picking a section does NOT close the cabinet (so you can
+ * jump between sections); it stays open until dismissed via the button, Escape, or a
+ * click on the dimmed area.
+ *
+ * Background scroll is deliberately left unlocked while open. Locking it means
+ * compensating for the scrollbar's width to avoid a layout shift, and getting that
+ * wrong is exactly what caused the last round of defects here; leaving it live also
+ * keeps the scroll-spy highlight updating behind the dim.
+ *
+ * The links stay mounted while closed for the slide animation but are `inert`, so they
+ * aren't tabbable or announced. The button blinks in on the same timing as the hero's
+ * social icons (shared `.intro-blink` class). Section ids/labels come from NAV_SECTIONS.
  */
 const HOME_ID = "home";
 
@@ -44,16 +54,14 @@ function HomeIcon() {
 
 export function NavBar() {
   const { phase } = useIntro();
+  // The panel's slide is a CSS transition and already respects motion-reduce; the
+  // scrim's fade is a motion/react animation, which does not, so gate it here to keep
+  // the two consistent (Timeline does the same).
+  const reduced = useReducedMotion();
   const [active, setActive] = useState<string>(HOME_ID);
   const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-  // The active section, mirrored in a ref so the on-open positioning effect can read
-  // the latest value without re-running each time you scroll past a section.
-  const activeRef = useRef(active);
-  useEffect(() => {
-    activeRef.current = active;
-  }, [active]);
+  const panelRef = useRef<HTMLElement>(null);
 
   // Scroll-spy: whichever section is crossing the middle of the viewport is active.
   useEffect(() => {
@@ -85,163 +93,124 @@ export function NavBar() {
     return () => document.removeEventListener("keydown", onKey);
   }, [open]);
 
-  // Smoothly scroll a link to the centre of the (scrollable) bar, clamped so the
-  // first/last links don't over-scroll past the ends — "centre it if possible".
-  const centerInBar = useCallback((el: HTMLElement | null) => {
-    const menu = menuRef.current;
-    if (!menu || !el) return;
-    const c = menu.getBoundingClientRect();
-    const e = el.getBoundingClientRect();
-    const center = e.left - c.left + menu.scrollLeft + e.width / 2 - menu.clientWidth / 2;
-    const max = menu.scrollWidth - menu.clientWidth;
-    menu.scrollTo({ left: Math.max(0, Math.min(center, max)), behavior: "smooth" });
-  }, []);
-
-  // When the bar opens, position the scroll so the current section is in view: home
-  // stays at the start (its icon sits clear of the X); any other section is centred.
-  // Runs after the ~300ms unfurl (so the width has settled), then moves focus to the
-  // active link for keyboard users — preventScroll so it doesn't undo the centring.
+  // Move focus to the current section's link once the panel has slid in, so keyboard
+  // users land where they are rather than at the top of the list. preventScroll so
+  // focusing a link never scrolls the page behind the cabinet.
   useEffect(() => {
     if (!open) return;
-    const menu = menuRef.current;
-    if (!menu) return;
-    menu.scrollLeft = 0; // home sits at the start as the bar unfurls
     const id = window.setTimeout(() => {
-      const el = menu.querySelector<HTMLElement>('[aria-current="true"]');
-      if (el && activeRef.current !== HOME_ID) centerInBar(el);
+      const el = panelRef.current?.querySelector<HTMLElement>('[aria-current="true"]');
       el?.focus({ preventScroll: true });
     }, 320);
     return () => window.clearTimeout(id);
-  }, [open, centerInBar]);
+  }, [open]);
 
   const line =
     "absolute left-0 h-0.5 w-6 rounded-full bg-neon-blue shadow-[0_0_8px_rgba(34,211,238,0.85)] transition-all duration-300";
 
+  const linkBase =
+    "inline-flex items-center gap-3 whitespace-nowrap rounded-full px-4 py-2 font-display text-xs uppercase tracking-[0.16em] transition-colors sm:text-sm";
+
   return (
     <>
-      {/* Click-away catcher — closes the bar when clicking anywhere else. */}
+      {/* Dimmed backdrop. Also the click-away target, so a click anywhere off the
+          cabinet closes it. */}
       <AnimatePresence>
         {open && (
           <motion.div
-            className="fixed inset-0 z-30"
+            data-testid="nav-scrim"
+            className="fixed inset-0 z-30 bg-black/60 backdrop-blur-sm"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
+            transition={{ duration: reduced ? 0 : 0.2 }}
             onClick={() => setOpen(false)}
             aria-hidden
           />
         )}
       </AnimatePresence>
 
-      {/* The right inset is what keeps the bar clear of the hero's top-right social
-          icons, which sit on this same line (see SocialLinks). It is the icons' own
-          inset, plus their 66px rail, plus a 2rem gap — the gap has to beat the 26px
-          blur on box-glow-blue below, since a box shadow spills past the border box
-          without taking up layout space, so a geometric gap alone still looks like a
-          collision.
-
-          Reserving the space with `right` rather than a viewport-width max-width on
-          the bar is deliberate: viewport units count the scrollbar but the icons'
-          `right-4` does not, so such a cap silently loses a scrollbar's width of
-          clearance on Windows. Anchoring both sides to the same containing block
-          cancels it out. (Keep class-shaped strings out of this comment — the JIT
-          scans source text and will compile them into real rules.)
-
-          The nav spans that whole strip, so it is pointer-events-none and the bar opts
-          back in — otherwise this invisible bar would swallow clicks meant for the
-          hero. The bar only opts in once the intro is done, which is what the old
-          pointer-events-none on the nav used to do. */}
+      {/* The panel itself. Closed, it is translated fully off the left edge — the
+          transform is what hides it, so `motion-reduce` may drop the transition's
+          duration but must never drop the transform. */}
       <nav
+        id="nav-menu"
+        ref={panelRef}
+        data-testid="nav-cabinet"
         aria-label="Page sections"
-        className="intro-blink pointer-events-none fixed left-4 right-[calc(1rem+66px+2rem)] top-4 z-40 flex h-[66px] items-center sm:left-6 sm:right-[calc(1.5rem+66px+2rem)] sm:top-6"
+        inert={!open}
+        className={`fixed inset-y-0 left-0 z-40 w-[22rem] max-w-[85vw] border-r border-white/10 bg-bg/95 backdrop-blur-md transition-transform duration-300 ease-out motion-reduce:transition-none ${
+          open ? "translate-x-0" : "-translate-x-full"
+        }`}
       >
-        <div
-          className={`flex h-12 max-w-full items-center rounded-full border border-white/10 bg-bg/70 backdrop-blur-md box-glow-blue ${
-            phase === "loading" ? "" : "pointer-events-auto"
-          }`}
-        >
-          <button
-            ref={btnRef}
-            type="button"
-            aria-label={open ? "Close menu" : "Open menu"}
-            aria-expanded={open}
-            aria-controls="nav-menu"
-            onClick={() => setOpen((o) => !o)}
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full"
-          >
-            <span className="relative block h-4 w-6">
-              <span className={`${line} ${open ? "top-1/2 -translate-y-1/2 rotate-45" : "top-0"}`} />
-              <span
-                className={`${line} top-1/2 -translate-y-1/2 ${open ? "opacity-0" : "opacity-100"}`}
-              />
-              <span
-                className={`${line} ${open ? "top-1/2 -translate-y-1/2 -rotate-45" : "bottom-0"}`}
-              />
-            </span>
-          </button>
-
-          {/* Horizontal reveal: grid column animates 0fr → 1fr, so the bar unfurls to
-              the right and settles at the links' natural width. */}
-          <div
-            className="grid min-w-0 transition-[grid-template-columns] duration-300 ease-out motion-reduce:transition-none"
-            style={{ gridTemplateColumns: open ? "1fr" : "0fr" }}
-          >
-            {/* Scrolls horizontally when the links are wider than the (viewport-capped)
-                bar, so every section stays reachable on small screens. Scrollbar hidden;
-                swipe / trackpad to scroll. */}
-            <div
-              id="nav-menu"
-              ref={menuRef}
-              inert={!open}
-              className="overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        {/* pt-24 clears the trigger button, which floats above the panel at z-50 so it
+            stays clickable in both states and reads as the cabinet's own ✕ when open. */}
+        <ul className="flex h-full flex-col gap-1 overflow-y-auto px-5 pb-10 pt-24">
+          <li>
+            <a
+              href={`#${HOME_ID}`}
+              aria-label="Home"
+              aria-current={active === HOME_ID ? "true" : undefined}
+              className={`${linkBase} ${
+                active === HOME_ID
+                  ? "bg-neon-blue/10 text-neon-blue text-glow-blue"
+                  : "text-muted hover:text-ink"
+              }`}
             >
-              <ul className="flex items-center gap-1 whitespace-nowrap py-1.5 pl-1 pr-3">
-                <li className="shrink-0">
-                  <a
-                    href={`#${HOME_ID}`}
-                    aria-label="Home"
-                    aria-current={active === HOME_ID ? "true" : undefined}
-                    onClick={(e) => centerInBar(e.currentTarget)}
-                    className={`flex items-center rounded-full px-3 py-1.5 text-base transition-colors ${
-                      active === HOME_ID ? "text-neon-blue text-glow-blue" : "text-muted hover:text-ink"
+              <HomeIcon />
+            </a>
+          </li>
+          <li aria-hidden className="my-2 h-px w-full bg-white/15" />
+          {NAV_SECTIONS.map((s, i) => {
+            const isActive = active === s.id;
+            return (
+              <li key={s.id}>
+                <a
+                  href={`#${s.id}`}
+                  aria-current={isActive ? "true" : undefined}
+                  className={`${linkBase} ${
+                    isActive
+                      ? "bg-neon-blue/10 text-neon-blue text-glow-blue"
+                      : "text-muted hover:text-ink"
+                  }`}
+                >
+                  <span
+                    className={`text-[0.72em] tabular-nums ${
+                      isActive ? "text-neon-blue" : "text-neon-blue/45"
                     }`}
                   >
-                    <HomeIcon />
-                  </a>
-                </li>
-                <li aria-hidden className="mx-1 h-5 w-px shrink-0 bg-white/15" />
-                {NAV_SECTIONS.map((s, i) => {
-                  const isActive = active === s.id;
-                  return (
-                    <li key={s.id} className="shrink-0">
-                      <a
-                        href={`#${s.id}`}
-                        aria-current={isActive ? "true" : undefined}
-                        onClick={(e) => centerInBar(e.currentTarget)}
-                        className={`flex items-center gap-2 whitespace-nowrap rounded-full px-3.5 py-1.5 font-display text-xs uppercase tracking-[0.16em] transition-colors sm:text-sm ${
-                          isActive
-                            ? "bg-neon-blue/10 text-neon-blue text-glow-blue"
-                            : "text-muted hover:text-ink"
-                        }`}
-                      >
-                        <span
-                          className={`text-[0.72em] tabular-nums ${
-                            isActive ? "text-neon-blue" : "text-neon-blue/45"
-                          }`}
-                        >
-                          0{i + 1}
-                        </span>
-                        {s.label}
-                      </a>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          </div>
-        </div>
+                    0{i + 1}
+                  </span>
+                  {s.label}
+                </a>
+              </li>
+            );
+          })}
+        </ul>
       </nav>
+
+      {/* Trigger — above the panel so it is reachable open or closed. */}
+      <button
+        ref={btnRef}
+        type="button"
+        aria-label={open ? "Close menu" : "Open menu"}
+        aria-expanded={open}
+        aria-controls="nav-menu"
+        onClick={() => setOpen((o) => !o)}
+        className={`intro-blink fixed left-4 top-4 z-50 flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-bg/70 backdrop-blur-md box-glow-blue sm:left-6 sm:top-6 ${
+          phase === "loading" ? "pointer-events-none" : ""
+        }`}
+      >
+        <span className="relative block h-4 w-6">
+          <span className={`${line} ${open ? "top-1/2 -translate-y-1/2 rotate-45" : "top-0"}`} />
+          <span
+            className={`${line} top-1/2 -translate-y-1/2 ${open ? "opacity-0" : "opacity-100"}`}
+          />
+          <span
+            className={`${line} ${open ? "top-1/2 -translate-y-1/2 -rotate-45" : "bottom-0"}`}
+          />
+        </span>
+      </button>
     </>
   );
 }
