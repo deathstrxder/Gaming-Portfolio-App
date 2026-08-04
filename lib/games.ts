@@ -131,6 +131,8 @@ export const NAV_SECTIONS = [
   { id: "riot", label: "Riot Games" },
   { id: "other", label: "Other Games" },
   { id: "timeline", label: "Timeline" },
+  { id: "clips", label: "Latest Clips" },
+  { id: "support", label: "Support Me" },
 ] as const;
 
 export const STATS: { big: string; small: string }[] = [
