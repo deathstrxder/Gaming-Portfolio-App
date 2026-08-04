@@ -20,25 +20,38 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 5. Copy the Client ID and Client secret into `.env.local` as `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`, and set `APP_BASE_URL`.
 6. Restart `npm run dev`.
 
-## Deploying to Render (free tier)
+## Deploying to Vercel + Turso
 
-This app is a Node server with a SQLite database, so it runs as a Render **Web Service** (not a static host).
-The `render.yaml` Blueprint in the repo root defines it.
+This app is a Next server with server-rendered API routes, so it needs a Node host rather than a static one.
+The database is [Turso](https://turso.tech) (libSQL), reached over the network through `@libsql/client`, so the data is durable and independent of the host's filesystem.
 
-**Heads-up — the free tier has no persistent disk, so the database is ephemeral:** it is rebuilt from migrations on every start and wiped whenever the service redeploys or sleeps (~15 min idle).
-The admin account is re-seeded on each start, but user signups/subscriptions do not survive a restart, and the first request after sleep is a slow cold start.
-Fine for a live demo; see the note at the bottom of `render.yaml` to make data durable on a paid plan.
+Deployment has not been run end to end yet — the steps below are the intended path, not a transcript of a completed deploy.
 
-1. Push this branch (`deploy/render`) to GitHub.
-2. Render Dashboard → **New → Blueprint** → connect the repo. Render reads `render.yaml` and creates the free web service (no payment needed).
-3. Set the secret env vars (the `sync: false` ones) in the service's **Environment** tab:
+1. Create a Turso database and copy its URL and auth token.
+2. Apply the schema and seed the admin account from your machine, run from the `my-app` folder.
+   Both scripts read `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` from `.env.local` and connect to the remote database over the network, so they do not need to run on the host:
+
+   ```bash
+   npm run db:migrate
+   npm run db:seed
+   ```
+
+   `scripts/turso-probe.ts` is available to check foreign-key enforcement and transaction behaviour against the remote database before you rely on it.
+3. Vercel Dashboard → import the repo. It builds with `npm run build`; no `vercel.json` is needed for a stock Next app.
+4. Set the environment variables on the Vercel project:
+   - `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` — from step 1.
    - `IRON_SESSION_PASSWORD` — a fresh random value, at least 32 characters.
-   - `ADMIN_PASSWORD` — a fresh admin password (the seed default in git history becomes a dead credential once you set this).
-   - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — leave unset for now if Google Cloud isn't set up yet; the "Continue with Google" button stays hidden until `GOOGLE_CLIENT_ID` is set.
-4. Deploy. The start command runs `db:migrate && db:seed` (rebuilding the schema + admin) before the server boots.
-5. Copy the assigned URL (`https://<name>.onrender.com`) into `APP_BASE_URL`, then redeploy.
-6. In Google Cloud (see the section above), register the production redirect URI `https://<name>.onrender.com/api/auth/google/callback` and set the two Google secrets in Render. The Google button then appears and works.
-7. Smoke-test the live site: accounts, subscription, admin dashboard, and Google sign-in.
-8. When satisfied, change `branch: deploy/render` to `branch: master` in `render.yaml` and merge to `master`; pushes to `master` then deploy automatically.
+   - `ADMIN_PASSWORD` — a fresh admin password. The seed default sitting in git history becomes a dead credential once you set this.
+   - `APP_BASE_URL` — the deployed origin, no trailing slash. The Google callback URL is derived from it.
+   - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — optional. The "Continue with Google" button stays hidden until `GOOGLE_CLIENT_ID` is set.
+   - `NEXT_PUBLIC_DONATE_URL` — optional, used by the donation panel.
+5. In Google Cloud (see the section above), register `<APP_BASE_URL>/api/auth/google/callback` as an authorized redirect URI.
+6. Smoke-test the live site: accounts, subscription, admin dashboard, and Google sign-in.
 
-The SQLite file lives at `/tmp/app.db` (ephemeral). Keep the service to a single instance — SQLite is single-writer.
+### Live game stats
+
+`.github/workflows/stats.yml` refreshes the stats snapshot every 6 hours and publishes it to the `stats-data` branch.
+GitHub only schedules workflows from the repository's default branch, so this job is dormant on any other branch.
+
+It needs `YOUTUBE_API_KEY` in the repository secrets.
+`HYPIXEL_API_KEY` is currently commented out in the workflow pending a build-step stall diagnosis, so the Hypixel-backed badge falls back to the bundled seed snapshot until that is resolved.
