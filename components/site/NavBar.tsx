@@ -134,21 +134,33 @@ export function NavBar() {
         )}
       </AnimatePresence>
 
+      {/* The right inset is what keeps the bar clear of the hero's top-right social
+          icons, which sit on this same line (see SocialLinks). It is the icons' own
+          inset, plus their 66px rail, plus a 2rem gap — the gap has to beat the 26px
+          blur on box-glow-blue below, since a box shadow spills past the border box
+          without taking up layout space, so a geometric gap alone still looks like a
+          collision.
+
+          Reserving the space with `right` rather than a viewport-width max-width on
+          the bar is deliberate: viewport units count the scrollbar but the icons'
+          `right-4` does not, so such a cap silently loses a scrollbar's width of
+          clearance on Windows. Anchoring both sides to the same containing block
+          cancels it out. (Keep class-shaped strings out of this comment — the JIT
+          scans source text and will compile them into real rules.)
+
+          The nav spans that whole strip, so it is pointer-events-none and the bar opts
+          back in — otherwise this invisible bar would swallow clicks meant for the
+          hero. The bar only opts in once the intro is done, which is what the old
+          pointer-events-none on the nav used to do. */}
       <nav
         aria-label="Page sections"
-        className={`intro-blink fixed left-4 top-4 z-40 flex h-[66px] items-center sm:left-6 sm:top-6 ${
-          phase === "loading" ? "pointer-events-none" : ""
-        }`}
+        className="intro-blink pointer-events-none fixed left-4 right-[calc(1rem+66px+2rem)] top-4 z-40 flex h-[66px] items-center sm:left-6 sm:right-[calc(1.5rem+66px+2rem)] sm:top-6"
       >
-        {/* The bar stops short of the hero's top-right social icons, which sit on the
-            same line at the same inset (see SocialLinks). Those are stacked in a column,
-            so the rail is one button wide — 4rem plus its border, 66px — and the cap is
-            the left/right insets (2rem, 3rem at sm) plus that rail plus 1rem of breathing
-            room. Without a cap the bar unfurls to within 1rem of the right edge and covers
-            the Discord button, since the nav is z-40 against the icons' z-20. Past this
-            width the links scroll inside the bar rather than growing it, so nothing
-            becomes unreachable. */}
-        <div className="flex h-12 max-w-[calc(100vw-7.25rem)] items-center rounded-full border border-white/10 bg-bg/70 backdrop-blur-md box-glow-blue sm:max-w-[calc(100vw-8.25rem)]">
+        <div
+          className={`flex h-12 max-w-full items-center rounded-full border border-white/10 bg-bg/70 backdrop-blur-md box-glow-blue ${
+            phase === "loading" ? "" : "pointer-events-auto"
+          }`}
+        >
           <button
             ref={btnRef}
             type="button"
