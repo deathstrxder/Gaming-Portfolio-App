@@ -44,6 +44,34 @@ describe("Reveal", () => {
     expect(withBackdrop).toContain('class="reveal-slide relative');
   });
 
+  it("sends a reveal that rose into view back out upward", () => {
+    // Content travels with the scroll: the timeline and clips sections rise into
+    // place, so scrolling on past them should carry them further up and out —
+    // not sink them back down toward the reader.
+    const html = renderToStaticMarkup(<Reveal from="up">clip</Reveal>);
+
+    expect(html).toContain("--leave:translate3d(0px, -120px, 0)");
+  });
+
+  it("still drifts a sideways reveal back out the edge it came from", () => {
+    // Guards the rule above against over-reach: there is no scroll-direction
+    // analogue for horizontal motion, so those exits must stay unchanged.
+    const html = renderToStaticMarkup(<Reveal from="left">card</Reveal>);
+
+    expect(html).toContain("--leave:translate3d(-120px, 0px, 0)");
+  });
+
+  it("lets a caller override the exit direction explicitly", () => {
+    // GameSection sends the Clash Royale cards through the opposite edge.
+    const html = renderToStaticMarkup(
+      <Reveal from="up" exit="origin">
+        clip
+      </Reveal>,
+    );
+
+    expect(html).toContain("--leave:translate3d(0px, 120px, 0)");
+  });
+
   it("puts a caller's className on the children's parent, not on the observed wrapper", () => {
     // MostPlayed passes layout classes that must apply to the element the children
     // actually sit in, or its flex column collapses.

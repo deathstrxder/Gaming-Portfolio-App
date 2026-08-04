@@ -38,13 +38,17 @@ const OFFSET = 120;
 export function Reveal({
   children,
   from = "left",
-  exit = "origin",
+  exit,
   className,
   backdrop,
 }: {
   children: ReactNode;
   from?: Direction;
-  /** "origin" drifts back out the way it came; "through" exits the opposite edge. */
+  /**
+   * "origin" drifts back out the way it came; "through" exits the opposite edge.
+   * Defaults to "through" for `from="up"` and "origin" otherwise — see the
+   * travel-with-the-scroll note below.
+   */
   exit?: "origin" | "through";
   className?: string;
   /** Tailwind classes for an opaque backdrop that slides with the content but never
@@ -86,7 +90,12 @@ export function Reveal({
   // Per-instance enter/leave offsets (consumed by the CSS transforms).
   const dx = from === "left" ? -OFFSET : from === "right" ? OFFSET : 0;
   const dy = from === "up" ? OFFSET : 0;
-  const sign = exit === "through" ? -1 : 1; // "through" leaves the opposite edge
+  // Content travels WITH the scroll: something that rose into view on the way down
+  // keeps rising on the way out, rather than sinking back toward the reader. Sideways
+  // reveals have no scroll-direction analogue, so they still drift back the way they
+  // came unless a caller says otherwise.
+  const resolvedExit = exit ?? (from === "up" ? "through" : "origin");
+  const sign = resolvedExit === "through" ? -1 : 1; // "through" leaves the opposite edge
   const style = {
     "--enter": `translate3d(${dx}px, ${dy}px, 0)`,
     "--leave": `translate3d(${dx * sign}px, ${dy * sign}px, 0)`,
