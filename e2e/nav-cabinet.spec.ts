@@ -123,15 +123,23 @@ test("darkens the rest of the page while open", async ({ page }) => {
 test("never overlaps the hero's social icons", async ({ page }) => {
   await trigger(page).click();
 
-  const youtube = page.getByRole("link", { name: /youtube/i }).first();
-  await expect(youtube).toBeVisible();
-
-  const panelBox = await box(cabinet(page));
-  const iconBox = await box(youtube);
+  // Whichever icon sits nearest the cabinet is the one that matters, and which one
+  // that is depends on how the rail is laid out — measure both rather than assume an
+  // order, so this keeps guarding if the icons are rearranged again.
+  const icons = [
+    page.getByRole("button", { name: /discord/i }),
+    page.getByRole("link", { name: /youtube/i }).first(),
+  ];
+  const lefts: number[] = [];
+  for (const icon of icons) {
+    await expect(icon).toBeVisible();
+    lefts.push((await box(icon)).x);
+  }
 
   // The regression this redesign exists to kill, asserted on real geometry rather
   // than computed from stylesheets.
-  expect(panelBox.x + panelBox.width).toBeLessThanOrEqual(iconBox.x);
+  const panelBox = await box(cabinet(page));
+  expect(panelBox.x + panelBox.width).toBeLessThanOrEqual(Math.min(...lefts));
 });
 
 test("closes on Escape and on a click outside", async ({ page }) => {
