@@ -1,6 +1,5 @@
 import Image from "next/image";
 
-import { YOUTUBE_URL } from "@/lib/games";
 import { getLiveStats } from "@/lib/stats/read";
 import { formatCount, formatRelativeTime } from "@/lib/stats/format";
 import { Reveal } from "@/components/site/Reveal";
@@ -37,19 +36,9 @@ export async function ClipsRow() {
       className="mx-auto w-full max-w-[120rem] px-6 pb-16 pt-24 sm:px-10"
     >
       <Reveal from="up">
-        <div className="flex flex-wrap items-baseline justify-between gap-6">
-          <h2 className="font-display text-6xl font-bold tracking-tight text-ink text-glow-blue sm:text-7xl">
-            Latest Clips
-          </h2>
-          <a
-            href={YOUTUBE_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="font-display text-lg uppercase tracking-[0.2em] text-neon-purple text-glow-purple transition-opacity hover:opacity-80"
-          >
-            Watch on YouTube
-          </a>
-        </div>
+        <h2 className="font-display text-6xl font-bold tracking-tight text-ink text-glow-blue sm:text-7xl">
+          Latest Clips
+        </h2>
       </Reveal>
 
       <div className={`mt-12 grid grid-cols-1 gap-8 ${layout}`}>
