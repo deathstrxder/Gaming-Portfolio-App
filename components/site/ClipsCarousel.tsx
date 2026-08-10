@@ -75,52 +75,60 @@ export function ClipsCarousel({ videos }: { videos: YouTubeVideo[] }) {
       onKeyDown={onKeyDown}
       className="mt-10"
     >
-      {hasControls && (
-        <p
-          data-testid="clip-counter"
-          className="eyebrow mb-6 text-right text-sm text-neon-blue/80"
-        >
-          {pad(index + 1)} <span className="text-muted/60">/</span> {pad(total)}
-        </p>
-      )}
-
-      <div className="flex items-center gap-4 sm:gap-8">
+      {/* Explicit grid placement rather than a flex row. Flanking arrows cost
+          2 × 48px plus gaps, which on a 390px phone left the clip 214px wide —
+          a 214 × 120 video. Below `sm` the arrows drop to their own row so the
+          clip spans the full width; from `sm` up they flank it as designed. */}
+      <div className="grid grid-cols-2 items-center gap-x-4 gap-y-6 sm:grid-cols-[auto_1fr_auto] sm:gap-x-8 sm:gap-y-0">
         {hasControls && (
           <button
             type="button"
             onClick={() => step(-1)}
             aria-label="Previous clip"
             data-testid="clip-prev"
-            className={ARROW}
+            className={`${ARROW} col-start-1 row-start-2 justify-self-start sm:col-start-1 sm:row-start-1`}
           >
             <Chevron direction="left" />
           </button>
         )}
 
-        <div className="clip-stack min-w-0 flex-1">
-          {videos.map((video, i) => {
-            const isActive = i === index;
-            return (
-              <div
-                key={video.id}
-                role="group"
-                aria-roledescription="slide"
-                aria-label={`Clip ${i + 1} of ${total}`}
-                data-testid="clip-layer"
-                data-active={isActive ? "true" : "false"}
-                aria-hidden={!isActive || undefined}
-                inert={!isActive}
-                className={`clip-layer${isActive ? " is-active" : ""}`}
-              >
-                <ClipPlayer
-                  video={video}
-                  isPlaying={playingIndex === i}
-                  onPlay={() => setPlayingIndex(i)}
-                  priority={i === 0}
-                />
-              </div>
-            );
-          })}
+        {/* The counter shares this column so it right-aligns with the clip rather
+            than with the outer container, which left it floating past the edge. */}
+        <div className="col-span-2 row-start-1 min-w-0 sm:col-span-1 sm:col-start-2 sm:row-start-1">
+          {hasControls && (
+            <p
+              data-testid="clip-counter"
+              className="eyebrow mb-6 text-right text-sm text-neon-blue/80"
+            >
+              {pad(index + 1)} <span className="text-muted/60">/</span> {pad(total)}
+            </p>
+          )}
+
+          <div className="clip-stack">
+            {videos.map((video, i) => {
+              const isActive = i === index;
+              return (
+                <div
+                  key={video.id}
+                  role="group"
+                  aria-roledescription="slide"
+                  aria-label={`Clip ${i + 1} of ${total}`}
+                  data-testid="clip-layer"
+                  data-active={isActive ? "true" : "false"}
+                  aria-hidden={!isActive || undefined}
+                  inert={!isActive}
+                  className={`clip-layer${isActive ? " is-active" : ""}`}
+                >
+                  <ClipPlayer
+                    video={video}
+                    isPlaying={playingIndex === i}
+                    onPlay={() => setPlayingIndex(i)}
+                    priority={i === 0}
+                  />
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         {hasControls && (
@@ -129,7 +137,7 @@ export function ClipsCarousel({ videos }: { videos: YouTubeVideo[] }) {
             onClick={() => step(1)}
             aria-label="Next clip"
             data-testid="clip-next"
-            className={ARROW}
+            className={`${ARROW} col-start-2 row-start-2 justify-self-end sm:col-start-3 sm:row-start-1`}
           >
             <Chevron direction="right" />
           </button>

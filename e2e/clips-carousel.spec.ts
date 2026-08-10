@@ -106,6 +106,31 @@ test("a hidden clip's play control cannot be reached", async ({ page }) => {
   await expect(hiddenLayers(page).first().getByTestId("clip-play")).toBeHidden();
 });
 
+test.describe("on a phone", () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  // Flanking arrows cost 2 × 48px plus gaps. Laid out as a plain flex row that
+  // left the clip 214px wide on this viewport — a 214 × 120 video — which no
+  // other assertion here could see. Below `sm` the arrows drop to their own row.
+  test("gives the clip the full column width", async ({ page }) => {
+    const clip = page.locator('[data-testid="clip-layer"][data-active="true"] img');
+    const box = await clip.boundingBox();
+    if (!box) throw new Error("the active clip has no bounding box");
+
+    // 390 viewport minus the section's 24px side padding.
+    expect(box.width).toBeGreaterThan(330);
+  });
+
+  test("keeps both arrows and every dot reachable", async ({ page }) => {
+    await expect(page.getByTestId("clip-prev")).toBeVisible();
+    await expect(page.getByTestId("clip-next")).toBeVisible();
+    await expect(page.getByTestId("clip-dot")).toHaveCount(3);
+
+    await page.getByTestId("clip-next").click();
+    await expect(activeLayer(page)).toContainText("E2E Clip Two");
+  });
+});
+
 test("the nav entry scrolls the section into view", async ({ page }) => {
   await page.getByRole("button", { name: /menu/i }).click();
   await page.locator("a").filter({ hasText: "Latest Clips" }).first().click();

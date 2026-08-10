@@ -81,7 +81,10 @@ export function ClipPlayer({
       <h3 className="mt-5 line-clamp-2 font-body text-xl leading-snug text-ink/90">
         {video.title}
       </h3>
-      <p className="eyebrow mt-2 text-sm text-muted">
+      {/* Not `.eyebrow`: its 0.32em tracking on the display face pulls "1D AGO"
+          apart far enough that the D reads as a 0 — "10 AGO". This is the lighter
+          tracking the old clips grid used, where the string stays legible. */}
+      <p className="mt-2 font-body text-sm uppercase tracking-[0.15em] text-muted">
         {formatCount(video.views)} views · {formatRelativeTime(video.publishedAt)}
       </p>
     </div>
