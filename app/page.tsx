@@ -7,7 +7,7 @@ import { GameSection } from "@/components/site/GameSection";
 import { Timeline } from "@/components/site/Timeline";
 import { Reveal } from "@/components/site/Reveal";
 import { NavBar } from "@/components/site/NavBar";
-import { ClipsRow } from "@/components/site/ClipsRow";
+import { ClipsSection } from "@/components/site/ClipsSection";
 import { SupportMe } from "@/components/site/SupportMe";
 
 /** Maps each game-showcase group to the nav anchor id on its section. */
@@ -49,7 +49,7 @@ export default function Home() {
       </div>
 
       <Divider />
-      <ClipsRow />
+      <ClipsSection />
 
       <Divider />
       <SupportMe />
