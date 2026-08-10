@@ -497,3 +497,60 @@ html {
     transition: none !important;
   }
 }
+
+/* ————— Latest Clips carousel —————
+
+   Every clip occupies the same grid cell, so the outgoing and incoming layers are
+   both on screen mid-transition — a real cross-fade, rather than a fade to an
+   empty box and back. Keeping every clip mounted also means stepping never
+   flashes an empty frame while a thumbnail loads.
+
+   `visibility` is delayed by the full fade duration on the way out, so the
+   outgoing layer survives its own transition and only then leaves the hit-testing
+   and accessibility trees. Opacity alone would not be enough: Playwright treats an
+   `opacity: 0` element as VISIBLE, so an end-to-end assertion that only one clip
+   shows would pass against a stack of eleven hidden ones. */
+.clip-stack {
+  display: grid;
+}
+.clip-stack > * {
+  grid-area: 1 / 1;
+}
+
+.clip-layer {
+  opacity: 0;
+  visibility: hidden;
+  transform: scale(1.02);
+  filter: blur(6px);
+  pointer-events: none;
+  transition:
+    opacity 450ms ease,
+    transform 450ms ease,
+    filter 450ms ease,
+    visibility 0s linear 450ms;
+}
+
+.clip-layer.is-active {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  filter: none;
+  pointer-events: auto;
+  transition:
+    opacity 450ms ease,
+    transform 450ms ease,
+    filter 450ms ease,
+    visibility 0s;
+}
+
+/* Reduced motion drops the duration, never the state change — the same contract
+   as `.reveal*` above, which playwright.config.ts relies on. Opacity and
+   visibility still switch, instantly, so only one clip is ever shown. */
+@media (prefers-reduced-motion: reduce) {
+  .clip-layer,
+  .clip-layer.is-active {
+    transform: none !important;
+    filter: none !important;
+    transition: none !important;
+  }
+}
