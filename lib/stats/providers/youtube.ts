@@ -43,6 +43,38 @@ export async function fetchYouTube(opts: {
   };
 }
 
+/** One entry of the API's `snippet.thumbnails` map. */
+type Thumbnail = { url?: string } | undefined;
+
+/** Thumbnails the carousel is willing to display, widest first. */
+type Thumbnails = {
+  maxres?: Thumbnail;
+  standard?: Thumbnail;
+  high?: Thumbnail;
+  medium?: Thumbnail;
+};
+
+const THUMBNAIL_PREFERENCE = ["maxres", "standard", "high", "medium"] as const;
+
+/**
+ * Picks the widest thumbnail the API actually returned.
+ *
+ * `medium` is 320px wide, and the carousel renders a clip near 900px, so taking
+ * `medium` unconditionally produces a visibly soft image. Not every video has
+ * every size — `maxres` in particular is absent on older or low-resolution
+ * uploads — so this walks a ladder rather than assuming one field exists.
+ *
+ * Returns "" when nothing usable is present, which is the signal ClipsSection
+ * filters on for private, deleted, and live-stream entries.
+ */
+export function pickThumbnail(thumbnails: Thumbnails | undefined): string {
+  for (const size of THUMBNAIL_PREFERENCE) {
+    const url = thumbnails?.[size]?.url;
+    if (url) return url;
+  }
+  return "";
+}
+
 async function fetchRecentVideos(
   apiKey: string,
   playlistId: string,
@@ -56,7 +88,7 @@ async function fetchRecentVideos(
       snippet?: {
         title?: string;
         publishedAt?: string;
-        thumbnails?: { medium?: { url?: string } };
+        thumbnails?: Thumbnails;
       };
     }[];
   };
@@ -79,7 +111,7 @@ async function fetchRecentVideos(
     return {
       id,
       title: item.snippet?.title ?? "Untitled",
-      thumbnail: item.snippet?.thumbnails?.medium?.url ?? "",
+      thumbnail: pickThumbnail(item.snippet?.thumbnails),
       views: viewsById.get(id) ?? 0,
       publishedAt: item.snippet?.publishedAt ?? "",
     };
