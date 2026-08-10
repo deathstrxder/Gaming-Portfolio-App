@@ -12,10 +12,16 @@ const pad = (n: number) => String(n).padStart(2, "0");
 const ARROW =
   "flex h-12 w-12 shrink-0 items-center justify-center border border-neon-blue/30 bg-bg-elev/60 text-neon-blue transition-colors hover:border-neon-blue hover:bg-bg-elev hover:text-neon-purple";
 
+/**
+ * Both chevrons are 7 wide and 14 tall with their bounding box centred on the
+ * 24x24 viewBox, so each sits square in its square button. Drawn from 8.5 to 15.5
+ * rather than the obvious whole numbers: 8-15 and 9-16 are each half a unit off
+ * centre, in opposite directions, which makes a facing pair look subtly lopsided.
+ */
 function Chevron({ direction }: { direction: "left" | "right" }) {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" className="h-6 w-6 fill-current">
-      <path d={direction === "left" ? "M15 5l-7 7 7 7z" : "M9 5l7 7-7 7z"} />
+      <path d={direction === "left" ? "M15.5 5l-7 7 7 7z" : "M8.5 5l7 7-7 7z"} />
     </svg>
   );
 }

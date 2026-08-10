@@ -70,8 +70,13 @@ export function ClipPlayer({
               aria-hidden="true"
               className="box-glow-blue absolute left-1/2 top-1/2 flex h-16 w-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center bg-bg/70 text-neon-blue backdrop-blur-sm transition-colors group-hover:bg-bg/85 group-hover:text-neon-purple"
             >
-              <svg viewBox="0 0 24 24" className="h-7 w-7 translate-x-[2px] fill-current">
-                <path d="M8 5v14l11-7z" />
+              {/* Vertices (6.5,5) (6.5,19) (17.5,12): 11 wide and 14 tall, with
+                  its bounding box centred on the 24x24 viewBox in both axes.
+                  Material's own play_arrow ("M8 5v14l11-7z") sits 1.5 units right
+                  of centre, which a translate-x nudge on top of it turned into a
+                  visibly crooked badge. */}
+              <svg viewBox="0 0 24 24" className="h-7 w-7 fill-current">
+                <path d="M6.5 5v14l11-7z" />
               </svg>
             </span>
           </button>

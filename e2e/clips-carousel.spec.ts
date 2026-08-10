@@ -106,6 +106,50 @@ test("a hidden clip's play control cannot be reached", async ({ page }) => {
   await expect(hiddenLayers(page).first().getByTestId("clip-play")).toBeHidden();
 });
 
+// The triangle is drawn inside a square badge, so any imbalance between the two
+// side gaps reads immediately as a crooked button. Measured off the painted <path>
+// rather than the <svg> box, because the svg is padded by the viewBox and would
+// look centred even when the shape inside it is not.
+test("centres the play triangle inside its badge", async ({ page }) => {
+  const badge = activeLayer(page).locator('[data-testid="clip-play"] span');
+  const triangle = activeLayer(page).locator('[data-testid="clip-play"] path');
+
+  const b = await badge.boundingBox();
+  const t = await triangle.boundingBox();
+  if (!b || !t) throw new Error("play badge or triangle has no bounding box");
+
+  const gapLeft = t.x - b.x;
+  const gapRight = b.x + b.width - (t.x + t.width);
+  const gapTop = t.y - b.y;
+  const gapBottom = b.y + b.height - (t.y + t.height);
+
+  // Sub-pixel tolerance only — this is geometry, not layout that can reflow.
+  expect(Math.abs(gapLeft - gapRight)).toBeLessThan(0.5);
+  expect(Math.abs(gapTop - gapBottom)).toBeLessThan(0.5);
+});
+
+// Same defect class as the play triangle: a chevron drawn on whole units sits half
+// a unit off centre, and the two arrows lean opposite ways, so the pair reads as
+// lopsided even though each looks fine alone.
+for (const arrow of ["clip-prev", "clip-next"] as const) {
+  test(`centres the ${arrow} chevron inside its button`, async ({ page }) => {
+    const button = page.getByTestId(arrow);
+    const chevron = button.locator("path");
+
+    const b = await button.boundingBox();
+    const c = await chevron.boundingBox();
+    if (!b || !c) throw new Error(`${arrow} button or chevron has no bounding box`);
+
+    const gapLeft = c.x - b.x;
+    const gapRight = b.x + b.width - (c.x + c.width);
+    const gapTop = c.y - b.y;
+    const gapBottom = b.y + b.height - (c.y + c.height);
+
+    expect(Math.abs(gapLeft - gapRight)).toBeLessThan(0.5);
+    expect(Math.abs(gapTop - gapBottom)).toBeLessThan(0.5);
+  });
+}
+
 test.describe("on a phone", () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
