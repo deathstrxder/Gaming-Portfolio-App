@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { TrafficChart } from "@/components/site/admin/TrafficChart";
-import { niceCeil } from "@/components/site/admin/scale";
+import { niceAxisTop } from "@/components/site/admin/scale";
 
 const HOUR = 3600;
 const START = 1_786_000_000;
@@ -12,21 +12,36 @@ const series = (counts: number[]) =>
 
 const countOf = (html: string, needle: string) => html.split(needle).length - 1;
 
-describe("niceCeil", () => {
-  // A y-axis topped at the raw maximum puts the peak on the frame edge and gives
-  // the reader no round number to measure against.
-  it("rounds up to a 1/2/5 x 10^k step", () => {
-    expect(niceCeil(7)).toBe(10);
-    expect(niceCeil(23)).toBe(50);
-    expect(niceCeil(120)).toBe(200);
-    expect(niceCeil(1)).toBe(1);
-    expect(niceCeil(0)).toBe(1);
+describe("niceAxisTop", () => {
+  it("always leaves room for the peak", () => {
+    for (const n of [1, 3, 7, 9, 11, 49, 51, 93, 99, 101, 117, 999, 1001, 12345]) {
+      expect(niceAxisTop(n, 4)).toBeGreaterThanOrEqual(n);
+    }
   });
 
-  it("never returns less than the value it is given", () => {
-    for (const n of [1, 3, 9, 11, 49, 51, 99, 101, 999, 1001, 12345]) {
-      expect(niceCeil(n)).toBeGreaterThanOrEqual(n);
+  // Rounding the MAXIMUM up to a power of ten wastes most of the plot when a
+  // value sits just above one: 117 becomes 200, squashing the series into the
+  // bottom half. Choosing the tick step instead keeps the shape readable.
+  it("does not waste half the plot on a value just above a round number", () => {
+    expect(niceAxisTop(117, 4)).toBe(120);
+    expect(niceAxisTop(93, 4)).toBe(100);
+    expect(niceAxisTop(1100, 4)).toBe(1200);
+  });
+
+  it("divides evenly into whole-number ticks", () => {
+    for (const n of [1, 7, 23, 93, 117, 260, 1001]) {
+      const top = niceAxisTop(n, 4);
+      expect(top % 4).toBe(0);
+      expect(Number.isInteger(top / 4)).toBe(true);
     }
+  });
+
+  // Page views are counts, so a gridline at 0.25 would label a view that
+  // cannot exist.
+  it("never steps in fractions, however small the series", () => {
+    expect(niceAxisTop(1, 4)).toBe(4);
+    expect(niceAxisTop(2, 4)).toBe(4);
+    expect(niceAxisTop(0, 4)).toBe(4);
   });
 });
 

@@ -4,7 +4,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, PointerEvent } from "react";
 
 import { bucketLabel, bucketTooltipLabel } from "@/lib/analytics/ranges";
-import { niceCeil } from "./scale";
+import { niceAxisTop } from "./scale";
 
 export interface TimelinePoint {
   startSec: number;
@@ -55,7 +55,10 @@ export function TrafficChart({
   const [active, setActive] = useState<number | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
-  const max = useMemo(() => niceCeil(Math.max(...points.map((p) => p.n), 0)), [points]);
+  const max = useMemo(
+    () => niceAxisTop(Math.max(...points.map((p) => p.n), 0), Y_TICKS),
+    [points],
+  );
   const total = useMemo(() => points.reduce((sum, p) => sum + p.n, 0), [points]);
   const isEmpty = points.length === 0 || total === 0;
 
@@ -217,7 +220,13 @@ export function TrafficChart({
         <div
           data-testid="traffic-tooltip"
           role="status"
-          className="pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 border border-neon-blue/30 bg-bg-elev px-3 py-2 text-center"
+          // Anchored to the crosshair, not to the chart's centre: a tooltip that
+          // stays put while the hairline moves makes the reader match a number
+          // to a point by eye. Clamped so it never hangs off either edge.
+          style={{
+            left: `${Math.min(88, Math.max(12, (xFor(active!, points.length) / W) * 100))}%`,
+          }}
+          className="pointer-events-none absolute top-0 -translate-x-1/2 border border-neon-blue/30 bg-bg-elev px-3 py-2 text-center"
         >
           {/* Value first: the reader already knows the series and wants the number. */}
           <p className="font-display text-lg text-ink">{activePoint.n}</p>
