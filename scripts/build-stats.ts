@@ -66,7 +66,13 @@ async function main() {
       fetchHypixel({ apiKey: required("HYPIXEL_API_KEY"), username: required("MC_USERNAME") }),
     ),
     attempt<YouTubeData>("youtube", () =>
-      fetchYouTube({ apiKey: required("YOUTUBE_API_KEY"), handle: required("YOUTUBE_HANDLE") }),
+      fetchYouTube({
+        apiKey: required("YOUTUBE_API_KEY"),
+        handle: required("YOUTUBE_HANDLE"),
+        // The carousel shows one clip at a time, so the old four-item default
+        // would make the dot row and the counter pointless almost immediately.
+        limit: 12,
+      }),
     ),
   ]);
 
