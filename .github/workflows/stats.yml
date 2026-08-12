@@ -29,9 +29,10 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Check out the code branch
+        # No `ref:` — a scheduled run already checks out the default branch, and
+        # pinning one here is how this job ended up stuck on `live-game-stats`
+        # after that work merged to master.
         uses: actions/checkout@v4
-        with:
-          ref: live-game-stats
 
       - uses: actions/setup-node@v4
         with:

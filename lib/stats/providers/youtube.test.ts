@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { fetchYouTube } from "./youtube";
+import { fetchYouTube, pickThumbnail } from "./youtube";
 
 const channelsResponse = {
   items: [
@@ -118,5 +118,75 @@ describe("fetchYouTube", () => {
 
     const data = await fetchYouTube({ apiKey: "k", handle: "@deathstrxder" });
     expect(data.videos).toEqual([]);
+  });
+});
+
+describe("pickThumbnail", () => {
+  it("prefers maxres over every smaller size", () => {
+    const url = pickThumbnail({
+      maxres: { url: "https://i.ytimg.com/vi/x/maxresdefault.jpg" },
+      standard: { url: "https://i.ytimg.com/vi/x/sddefault.jpg" },
+      high: { url: "https://i.ytimg.com/vi/x/hqdefault.jpg" },
+      medium: { url: "https://i.ytimg.com/vi/x/mqdefault.jpg" },
+    });
+    expect(url).toBe("https://i.ytimg.com/vi/x/maxresdefault.jpg");
+  });
+
+  it("falls through the ladder in order", () => {
+    expect(
+      pickThumbnail({
+        standard: { url: "https://i.ytimg.com/vi/x/sddefault.jpg" },
+        high: { url: "https://i.ytimg.com/vi/x/hqdefault.jpg" },
+      }),
+    ).toBe("https://i.ytimg.com/vi/x/sddefault.jpg");
+
+    expect(pickThumbnail({ high: { url: "https://i.ytimg.com/vi/x/hqdefault.jpg" } })).toBe(
+      "https://i.ytimg.com/vi/x/hqdefault.jpg",
+    );
+
+    expect(pickThumbnail({ medium: { url: "https://i.ytimg.com/vi/x/mqdefault.jpg" } })).toBe(
+      "https://i.ytimg.com/vi/x/mqdefault.jpg",
+    );
+  });
+
+  // Private, deleted, and live entries arrive with no usable thumbnail. The empty
+  // string is the contract ClipsSection filters on — it must not become undefined.
+  it("returns an empty string when nothing usable is present", () => {
+    expect(pickThumbnail(undefined)).toBe("");
+    expect(pickThumbnail({})).toBe("");
+    expect(pickThumbnail({ medium: { url: undefined } })).toBe("");
+  });
+
+  // The carousel renders a clip near 900px wide; `medium` is 320px. A regression
+  // here is invisible in tests but plainly visible on the page.
+  it("is what fetchYouTube uses, so a wide thumbnail reaches the snapshot", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (url.includes("/channels")) return new Response(JSON.stringify(channelsResponse));
+        if (url.includes("/playlistItems"))
+          return new Response(
+            JSON.stringify({
+              items: [
+                {
+                  contentDetails: { videoId: "vid1" },
+                  snippet: {
+                    title: "Bridge 50 winstreak",
+                    publishedAt: "2026-07-20T00:00:00Z",
+                    thumbnails: {
+                      maxres: { url: "https://i.ytimg.com/vi/vid1/maxresdefault.jpg" },
+                      medium: { url: "https://i.ytimg.com/vi/vid1/mqdefault.jpg" },
+                    },
+                  },
+                },
+              ],
+            }),
+          );
+        return new Response(JSON.stringify({ items: [{ id: "vid1", statistics: { viewCount: "9" } }] }));
+      }),
+    );
+
+    const data = await fetchYouTube({ apiKey: "k", handle: "@deathstrxder" });
+    expect(data.videos[0].thumbnail).toBe("https://i.ytimg.com/vi/vid1/maxresdefault.jpg");
   });
 });

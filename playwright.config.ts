@@ -1,3 +1,5 @@
+import path from "node:path";
+
 import { defineConfig, devices } from "@playwright/test";
 
 const PORT = 3100;
@@ -36,5 +38,20 @@ export default defineConfig({
     url: BASE_URL,
     reuseExistingServer: true,
     timeout: 300_000,
+    // The bundled seed carries no providers, so the clips section would render its
+    // empty state and there would be nothing to drive. This points the snapshot
+    // reader at a committed fixture instead. See lib/stats/read.ts.
+    //
+    // `__dirname`, not `import.meta.url`: Playwright transpiles this config to CJS
+    // before loading it, so `import.meta` is a SyntaxError here even though the
+    // same expression is fine in vitest.config.ts, which Vite loads as ESM.
+    //
+    // The fixture lives beside the specs rather than under `data/`, which
+    // `.gitignore` excludes wholesale to keep the local SQLite database out of
+    // the repo. Its thumbnails are inline `data:` URIs, so a test run neither
+    // reaches i.ytimg.com nor ships a fixture image to production.
+    env: {
+      STATS_SNAPSHOT_FILE: path.join(__dirname, "e2e", "fixtures", "stats-snapshot.json"),
+    },
   },
 });

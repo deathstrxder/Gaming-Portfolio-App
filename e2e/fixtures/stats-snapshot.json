@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "generatedAt": "2026-08-10T12:00:00.000Z",
+  "providers": {
+    "youtube": {
+      "ok": true,
+      "stale": false,
+      "fetchedAt": "2026-08-10T12:00:00.000Z",
+      "data": {
+        "subscribers": 1240,
+        "subscribersAreRounded": true,
+        "videos": [
+          {
+            "id": "e2eClipOne",
+            "title": "E2E Clip One",
+            "thumbnail": "data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20320%20180%27%3E%3Crect%20width%3D%27320%27%20height%3D%27180%27%20fill%3D%27%230d0f1c%27%2F%3E%3C%2Fsvg%3E",
+            "views": 3021,
+            "publishedAt": "2026-08-09T12:00:00.000Z"
+          },
+          {
+            "id": "e2eClipTwo",
+            "title": "E2E Clip Two",
+            "thumbnail": "data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20320%20180%27%3E%3Crect%20width%3D%27320%27%20height%3D%27180%27%20fill%3D%27%23141a2e%27%2F%3E%3C%2Fsvg%3E",
+            "views": 1180,
+            "publishedAt": "2026-08-08T12:00:00.000Z"
+          },
+          {
+            "id": "e2eClipThree",
+            "title": "E2E Clip Three",
+            "thumbnail": "data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20320%20180%27%3E%3Crect%20width%3D%27320%27%20height%3D%27180%27%20fill%3D%27%231d2540%27%2F%3E%3C%2Fsvg%3E",
+            "views": 640,
+            "publishedAt": "2026-08-07T12:00:00.000Z"
+          }
+        ]
+      }
+    }
+  }
+}
