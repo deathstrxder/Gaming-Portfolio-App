@@ -1,5 +1,6 @@
 "use client";
 
+import { PasswordInput } from "@/components/site/PasswordInput";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { MemberChrome } from "./MemberChrome";
@@ -100,13 +101,13 @@ export function AccountScreen({ hasPassword }: { hasPassword: boolean }) {
         <Section title={hasPassword ? "Change password" : "Set a password"}>
           <form onSubmit={savePassword} className="flex flex-col gap-3">
             {hasPassword ? (
-              <input className={inputClass} type="password" placeholder="Current password" value={current} onChange={(e) => setCurrent(e.target.value)} required autoComplete="current-password" />
+              <PasswordInput className={inputClass} placeholder="Current password" value={current} onChange={(e) => setCurrent(e.target.value)} required autoComplete="current-password" />
             ) : (
               <p className="font-body text-sm text-muted">
                 You signed in with Google. Set a password to also enable email login.
               </p>
             )}
-            <input className={inputClass} type="password" placeholder="New password" value={next} onChange={(e) => setNext(e.target.value)} required autoComplete="new-password" />
+            <PasswordInput className={inputClass} placeholder="New password" value={next} onChange={(e) => setNext(e.target.value)} required autoComplete="new-password" />
             <PasswordChecklist password={next} />
             {pwMsg ? <p className="font-body text-sm text-muted">{pwMsg}</p> : null}
             <Button type="submit" size="sm">{hasPassword ? "Update password" : "Set password"}</Button>

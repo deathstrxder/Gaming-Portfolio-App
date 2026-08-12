@@ -15,10 +15,6 @@ export function PayScreen() {
       <Card className="hud-corners box-glow-blue w-full max-w-md">
         <CardContent className="p-8 text-center">
           <p className="font-display text-sm uppercase tracking-[0.2em] text-muted">Support the site</p>
-          <p className="mt-3 font-body text-ink">
-            This project is free and always will be. If you have enjoyed it, a
-            donation helps cover hosting.
-          </p>
 
           {donateUrl ? (
             <Button asChild className="mt-8 h-auto rounded-2xl px-10 py-5 text-xl tracking-[0.2em]">

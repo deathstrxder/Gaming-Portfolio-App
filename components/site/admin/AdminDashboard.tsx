@@ -52,7 +52,14 @@ function Stat({ label, value }: { label: string; value: number }) {
   return (
     <Card className="hud-corners">
       <CardContent className="p-6">
-        <p className="font-display text-5xl font-black text-neon-blue text-glow-blue">{value}</p>
+        {/* Orbitron has no tabular figures (font-variant-numeric: tabular-nums is
+            a no-op here), and its "1" carries roughly half the advance of its
+            neighbours with almost no side bearing. At weight 900 under the glow,
+            "217" rendered with the 1 and 7 fused into one glyph. The tracking
+            separates them; measured gap between digit boxes was 0px without it. */}
+        <p className="font-display text-5xl font-black tracking-wider text-neon-blue text-glow-blue">
+          {value}
+        </p>
         <p className="mt-1 font-body text-sm uppercase tracking-[0.15em] text-muted">{label}</p>
       </CardContent>
     </Card>
@@ -175,13 +182,19 @@ export function AdminDashboard() {
         {tab === "analytics" && analytics ? (
           <div className="flex flex-col gap-8">
             <h1 className="font-display text-4xl font-bold text-ink text-glow-blue">Data Analytics</h1>
-            <div className="sm:max-w-xs">
-              <Stat label="Dodecahedron interactions" value={analytics.dodecahedronInteractions} />
-            </div>
             <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
               <BarList title="Most viewed sections" rows={analytics.mostViewedSections} />
               <BarList title="Most pressed buttons" rows={analytics.mostPressedButtons} />
               <BarList title="Top pages" rows={analytics.topPages} />
+              {/* Only ever one row: the event carries no breakdown dimension
+                  (Analytics.tsx calls track("dodecahedron_interaction") with no
+                  payload), so the bar is always full and the count is what
+                  carries the information. Moving it into the grid also fills the
+                  fourth cell the three lists left empty. */}
+              <BarList
+                title="Dodecahedron"
+                rows={[{ key: "Interactions", n: analytics.dodecahedronInteractions }]}
+              />
             </div>
           </div>
         ) : null}

@@ -1,5 +1,6 @@
 "use client";
 
+import { PasswordInput } from "@/components/site/PasswordInput";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -179,10 +180,10 @@ export function AuthPanel() {
             <h3 className="font-display text-2xl uppercase tracking-[0.15em] text-ink">Create account</h3>
             <input className={inputClass} type="email" placeholder="Email" value={email}
               onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
-            <input className={inputClass} type="password" placeholder="Password" value={password}
+            <PasswordInput className={inputClass} placeholder="Password" value={password}
               onChange={(e) => setPassword(e.target.value)} required autoComplete="new-password" />
             <PasswordChecklist password={password} />
-            <input className={inputClass} type="password" placeholder="Confirm password" value={confirm}
+            <PasswordInput className={inputClass} placeholder="Confirm password" value={confirm}
               onChange={(e) => setConfirm(e.target.value)} required autoComplete="new-password" />
             <Button type="submit" disabled={busy}>{busy ? "Creating…" : "Sign up"}</Button>
             {googleEnabled ? <GoogleAuthOptions /> : null}
@@ -198,7 +199,7 @@ export function AuthPanel() {
             <h3 className="font-display text-2xl uppercase tracking-[0.15em] text-ink">Log in</h3>
             <input className={inputClass} type="text" placeholder="Email" value={identifier}
               onChange={(e) => setIdentifier(e.target.value)} required autoComplete="username" />
-            <input className={inputClass} type="password" placeholder="Password" value={loginPassword}
+            <PasswordInput className={inputClass} placeholder="Password" value={loginPassword}
               onChange={(e) => setLoginPassword(e.target.value)} required autoComplete="current-password" />
             <label className="flex items-center gap-2 font-body text-sm text-muted">
               <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
