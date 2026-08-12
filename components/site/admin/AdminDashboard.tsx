@@ -5,12 +5,18 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { BarList, type Row } from "./Bar";
+import { RangePicker } from "./RangePicker";
+import { TrafficChart, type TimelinePoint } from "./TrafficChart";
+import { RANGE_LABELS, type RangeKey } from "@/lib/analytics/ranges";
 
 type Tab = "traffic" | "analytics" | "users";
 
 interface Traffic {
+  range: RangeKey;
   totalVisits: number;
   uniqueVisitors: number;
+  timeline: TimelinePoint[];
+  bucketSec: number;
   byDevice: Row[];
   byBrowser: Row[];
   byOs: Row[];
@@ -56,7 +62,14 @@ function Stat({ label, value }: { label: string; value: number }) {
 export function AdminDashboard() {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("traffic");
+  const [range, setRange] = useState<RangeKey>("week");
   const [traffic, setTraffic] = useState<Traffic | null>(null);
+
+  // Derived, not stored: the panels are stale exactly while the range on screen
+  // is not the range that was asked for. A separate loading flag would have to
+  // be set synchronously inside the effect, which is what react-hooks'
+  // set-state-in-effect rule exists to prevent.
+  const trafficLoading = traffic !== null && traffic.range !== range;
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [users, setUsers] = useState<AdminUser[] | null>(null);
 
@@ -69,12 +82,21 @@ export function AdminDashboard() {
     // getJson resolves to null on a non-ok response but rejects if the request
     // itself fails, so each catch maps a network failure onto the same empty
     // state the non-ok path already produces.
-    getJson<Traffic>("/api/admin/traffic").then(setTraffic).catch(() => setTraffic(null));
     getJson<Analytics>("/api/admin/analytics").then(setAnalytics).catch(() => setAnalytics(null));
     getJson<{ users: AdminUser[] }>("/api/admin/users")
       .then((d) => setUsers(d?.users ?? []))
       .catch(() => setUsers([]));
   }, []);
+
+  // Refetching keeps the previous render on screen at reduced opacity rather
+  // than dropping to a skeleton, so changing range never jumps the layout.
+  useEffect(() => {
+    let cancelled = false;
+    getJson<Traffic>(`/api/admin/traffic?range=${range}`)
+      .then((d) => { if (!cancelled) setTraffic(d); })
+      .catch(() => { if (!cancelled) setTraffic(null); });
+    return () => { cancelled = true; };
+  }, [range]);
 
   async function del(userId: number) {
     await postJson("/api/admin/users/delete", { userId });
@@ -119,16 +141,33 @@ export function AdminDashboard() {
         {tab === "traffic" && traffic ? (
           <div className="flex flex-col gap-8">
             <h1 className="font-display text-4xl font-bold text-ink text-glow-blue">Website Traffic</h1>
+
+            {/* One row above everything it scopes. */}
+            <RangePicker value={range} onChange={setRange} disabled={trafficLoading} />
+
+            <div
+              data-testid="traffic-panels"
+              className={`flex flex-col gap-8 transition-opacity ${trafficLoading ? "opacity-50" : "opacity-100"}`}
+            >
             <div className="grid grid-cols-2 gap-4 sm:max-w-md">
               <Stat label="Page views" value={traffic.totalVisits} />
               <Stat label="Registered visitors" value={traffic.uniqueVisitors} />
             </div>
+
+            <div>
+              <p className="mb-4 font-display text-sm uppercase tracking-[0.15em] text-muted">
+                Page views · {RANGE_LABELS[traffic.range]}
+              </p>
+              <TrafficChart points={traffic.timeline} bucketSec={traffic.bucketSec} />
+            </div>
+
             <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
               <BarList title="Where (timezone)" rows={traffic.byRegion} />
               <BarList title="Device" rows={traffic.byDevice} />
               <BarList title="Browser" rows={traffic.byBrowser} />
               <BarList title="OS" rows={traffic.byOs} />
               <BarList title="Top pages" rows={traffic.byPath} />
+            </div>
             </div>
           </div>
         ) : null}
