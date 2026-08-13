@@ -201,6 +201,26 @@ describe("cursor art", () => {
   });
 
   /**
+   * The gem is a lit gem, not a dim one. Brightening it has to be done by
+   * mixing toward white rather than by scaling the channels: its blue already
+   * sits at 235-255, so scaling clamps, and clamped pixels collapse to a single
+   * value — which silently flattens the shading the tests above protect.
+   *
+   * Measured: 104 mean luminance before the interior was lifted, 120 after.
+   * Saturation is the budget that stops this going further; the washed-out test
+   * below is the other half of the bound.
+   */
+  it("keeps the gem's interior brightly lit", () => {
+    const mean =
+      window.reduce((sum, [x, y]) => {
+        const i = index(x, y);
+        return sum + luminance(hand.data[i], hand.data[i + 1], hand.data[i + 2]);
+      }, 0) / window.length;
+
+    expect(mean).toBeGreaterThan(110);
+  });
+
+  /**
    * The same defect from a second angle, because a correlation can be satisfied
    * in ways a human would still read as flat. A vertical ramp gives every pixel
    * in a row an identical value — measured spread of exactly 0 on every row.
