@@ -166,6 +166,63 @@ describe("cursor art", () => {
   });
 
   /**
+   * The lit gem has to be modelled like the hollow it replaces, not poured in
+   * flat. An earlier fill was a pure vertical ramp: every pixel in a row shared
+   * one value, so the gem read as flat plastic inside a blade that is otherwise
+   * carefully bevelled.
+   *
+   * Measured: the flat fill scored 0.13 against the resting window; the shaded
+   * one scores 0.91. The bar sits between them, near the good end.
+   */
+  it("shades the gem the way the resting hollow is shaded", () => {
+    const restingL: number[] = [];
+    const hoverL: number[] = [];
+    for (const [x, y] of window) {
+      const i = index(x, y);
+      restingL.push(luminance(arrow.data[i], arrow.data[i + 1], arrow.data[i + 2]));
+      hoverL.push(luminance(hand.data[i], hand.data[i + 1], hand.data[i + 2]));
+    }
+
+    const mean = (v: number[]) => v.reduce((s, n) => s + n, 0) / v.length;
+    const mr = mean(restingL);
+    const mh = mean(hoverL);
+    let cov = 0;
+    let vr = 0;
+    let vh = 0;
+    for (let i = 0; i < restingL.length; i += 1) {
+      const a = restingL[i] - mr;
+      const b = hoverL[i] - mh;
+      cov += a * b;
+      vr += a * a;
+      vh += b * b;
+    }
+
+    expect(cov / Math.sqrt(vr * vh)).toBeGreaterThan(0.75);
+  });
+
+  /**
+   * The same defect from a second angle, because a correlation can be satisfied
+   * in ways a human would still read as flat. A vertical ramp gives every pixel
+   * in a row an identical value — measured spread of exactly 0 on every row.
+   * The shaded gem's narrowest row spans 17.5.
+   */
+  it("varies across each row, not just down the gem", () => {
+    const rows = new Map<number, number[]>();
+    for (const [x, y] of window) {
+      const i = index(x, y);
+      const l = luminance(hand.data[i], hand.data[i + 1], hand.data[i + 2]);
+      rows.set(y, [...(rows.get(y) ?? []), l]);
+    }
+
+    const flatRows = [...rows.entries()]
+      .filter(([, v]) => v.length >= 4)
+      .filter(([, v]) => Math.max(...v) - Math.min(...v) < 8)
+      .map(([y]) => y);
+
+    expect(flatRows).toEqual([]);
+  });
+
+  /**
    * Hovering lights the gem and nothing else. Uniformly brightening the blade
    * flattens the bevel that gives it its shine and shadow, so every pixel
    * outside the window must be byte-identical to the resting cursor.
