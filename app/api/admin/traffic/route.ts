@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import { getTraffic } from "@/lib/db/analytics";
 import { requireAdmin } from "@/lib/auth/require-admin";
-import { isRangeKey } from "@/lib/analytics/ranges";
+import { DEFAULT_RANGE, isRangeKey } from "@/lib/analytics/ranges";
 
 export const dynamic = "force-dynamic";
 
@@ -16,5 +16,5 @@ export async function GET(request: Request) {
     return Response.json({ error: `unknown range "${raw}"` }, { status: 400 });
   }
 
-  return Response.json(await getTraffic(db, raw ?? "week"));
+  return Response.json(await getTraffic(db, raw ?? DEFAULT_RANGE));
 }

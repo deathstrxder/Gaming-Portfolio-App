@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  DEFAULT_RANGE,
   MAX_ALL_TIME_BUCKETS,
   RANGE_KEYS,
   bucketStarts,
@@ -11,6 +12,32 @@ import {
 const HOUR = 3600;
 const DAY = 86_400;
 const NOW = 1_786_000_000; // fixed, so nothing here depends on the wall clock
+
+/**
+ * The dashboard and the route both open on this range, and they must agree: the
+ * client seeds its state from it and the route falls back to it when `?range=`
+ * is absent. Two independent literals would let an absent range mean one thing
+ * on the server and another on screen.
+ */
+describe("DEFAULT_RANGE", () => {
+  it("opens on the past day", () => {
+    expect(DEFAULT_RANGE).toBe("day");
+  });
+
+  it("is a real range", () => {
+    expect(isRangeKey(DEFAULT_RANGE)).toBe(true);
+    expect(RANGE_KEYS).toContain(DEFAULT_RANGE);
+  });
+
+  // Nothing here asserts a bucket width: "past day" is an hourly chart, and a
+  // reader who wants day-wide buckets picks a longer range. Pinning the width
+  // would fail the moment the default range changes, which is not the contract.
+  it("resolves to a usable window", () => {
+    const w = resolveWindow(DEFAULT_RANGE, NOW, null);
+    expect(w).not.toBeNull();
+    expect(w!.bucketCount).toBeGreaterThan(0);
+  });
+});
 
 describe("isRangeKey", () => {
   it("accepts every documented key", () => {
