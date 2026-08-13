@@ -178,12 +178,12 @@ export function AuthPanel() {
         {step === "signup" ? (
           <form onSubmit={handleSignup} className="flex flex-col gap-4">
             <h3 className="font-display text-2xl uppercase tracking-[0.15em] text-ink">Create account</h3>
-            <input className={inputClass} type="email" placeholder="Email" value={email}
+            <input className={inputClass} type="email" placeholder="Email" aria-label="Email" value={email}
               onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
-            <PasswordInput className={inputClass} placeholder="Password" value={password}
+            <PasswordInput className={inputClass} placeholder="Password" aria-label="Password" value={password}
               onChange={(e) => setPassword(e.target.value)} required autoComplete="new-password" />
             <PasswordChecklist password={password} />
-            <PasswordInput className={inputClass} placeholder="Confirm password" value={confirm}
+            <PasswordInput className={inputClass} placeholder="Confirm password" aria-label="Confirm password" value={confirm}
               onChange={(e) => setConfirm(e.target.value)} required autoComplete="new-password" />
             <Button type="submit" disabled={busy}>{busy ? "Creating…" : "Sign up"}</Button>
             {googleEnabled ? <GoogleAuthOptions /> : null}
@@ -197,9 +197,9 @@ export function AuthPanel() {
         {step === "login" ? (
           <form onSubmit={handleLogin} className="flex flex-col gap-4">
             <h3 className="font-display text-2xl uppercase tracking-[0.15em] text-ink">Log in</h3>
-            <input className={inputClass} type="text" placeholder="Email" value={identifier}
+            <input className={inputClass} type="text" placeholder="Email" aria-label="Email" value={identifier}
               onChange={(e) => setIdentifier(e.target.value)} required autoComplete="username" />
-            <PasswordInput className={inputClass} placeholder="Password" value={loginPassword}
+            <PasswordInput className={inputClass} placeholder="Password" aria-label="Password" value={loginPassword}
               onChange={(e) => setLoginPassword(e.target.value)} required autoComplete="current-password" />
             <label className="flex items-center gap-2 font-body text-sm text-muted">
               <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
@@ -223,8 +223,10 @@ export function AuthPanel() {
             <p className="text-center font-display text-3xl tracking-[0.4em] text-neon-blue text-glow-blue">
               {shownCode}
             </p>
+            {/* The placeholder is six underscores, so it is no use as a name. */}
             <input className={`${inputClass} text-center tracking-[0.4em]`} inputMode="numeric" maxLength={6}
-              placeholder="______" value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} required />
+              placeholder="______" aria-label="Verification code" value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} required />
             <Button type="submit" disabled={busy}>{busy ? "Verifying…" : "Verify"}</Button>
           </form>
         ) : null}
@@ -232,7 +234,7 @@ export function AuthPanel() {
         {step === "username" ? (
           <form onSubmit={handleUsername} className="flex flex-col gap-4">
             <h3 className="font-display text-2xl uppercase tracking-[0.15em] text-ink">Choose a username</h3>
-            <input className={inputClass} type="text" placeholder="Username" value={username}
+            <input className={inputClass} type="text" placeholder="Username" aria-label="Username" value={username}
               onChange={(e) => setUsername(e.target.value)} required autoComplete="off" />
             <Button type="submit" disabled={busy}>{busy ? "Saving…" : "Continue"}</Button>
           </form>
