@@ -1,5 +1,6 @@
 "use client";
 
+import { PasswordInput } from "@/components/site/PasswordInput";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { MemberChrome } from "./MemberChrome";
@@ -91,7 +92,7 @@ export function AccountScreen({ hasPassword }: { hasPassword: boolean }) {
 
         <Section title="Change username">
           <form onSubmit={saveUsername} className="flex flex-col gap-3">
-            <input className={inputClass} placeholder="New username" value={username} onChange={(e) => setUsername(e.target.value)} required />
+            <input className={inputClass} placeholder="New username" aria-label="New username" value={username} onChange={(e) => setUsername(e.target.value)} required />
             {usernameMsg ? <p className="font-body text-sm text-muted">{usernameMsg}</p> : null}
             <Button type="submit" size="sm">Save username</Button>
           </form>
@@ -100,13 +101,13 @@ export function AccountScreen({ hasPassword }: { hasPassword: boolean }) {
         <Section title={hasPassword ? "Change password" : "Set a password"}>
           <form onSubmit={savePassword} className="flex flex-col gap-3">
             {hasPassword ? (
-              <input className={inputClass} type="password" placeholder="Current password" value={current} onChange={(e) => setCurrent(e.target.value)} required autoComplete="current-password" />
+              <PasswordInput className={inputClass} placeholder="Current password" aria-label="Current password" value={current} onChange={(e) => setCurrent(e.target.value)} required autoComplete="current-password" />
             ) : (
               <p className="font-body text-sm text-muted">
                 You signed in with Google. Set a password to also enable email login.
               </p>
             )}
-            <input className={inputClass} type="password" placeholder="New password" value={next} onChange={(e) => setNext(e.target.value)} required autoComplete="new-password" />
+            <PasswordInput className={inputClass} placeholder="New password" aria-label="New password" value={next} onChange={(e) => setNext(e.target.value)} required autoComplete="new-password" />
             <PasswordChecklist password={next} />
             {pwMsg ? <p className="font-body text-sm text-muted">{pwMsg}</p> : null}
             <Button type="submit" size="sm">{hasPassword ? "Update password" : "Set password"}</Button>
@@ -115,7 +116,8 @@ export function AccountScreen({ hasPassword }: { hasPassword: boolean }) {
 
         <Section title="Birthday">
           <form onSubmit={saveBirthday} className="flex flex-col gap-3">
-            <input className={inputClass} type="date" value={birthday} onChange={(e) => setBirthday(e.target.value)} required />
+            {/* A bare date input has no placeholder to fall back on, so without this it has no name at all. */}
+            <input className={inputClass} type="date" aria-label="Birthday" value={birthday} onChange={(e) => setBirthday(e.target.value)} required />
             {bdMsg ? <p className="font-body text-sm text-muted">{bdMsg}</p> : null}
             <Button type="submit" size="sm">Save birthday</Button>
           </form>
