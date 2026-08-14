@@ -199,6 +199,16 @@ export async function changePassword(
   return { ok: true };
 }
 
+/**
+ * Marks an account verified without a code.
+ *
+ * Admin-only, and the reason it exists is that delivery is expected to fail
+ * sometimes — see app/api/admin/users/verify/route.ts.
+ */
+export async function setEmailVerified(db: AppDb, userId: number): Promise<void> {
+  await db.update(users).set({ emailVerified: true }).where(eq(users.id, userId)).run();
+}
+
 export async function setBirthday(db: AppDb, userId: number, birthday: string): Promise<void> {
   await db.update(profiles).set({ birthday }).where(eq(profiles.userId, userId)).run();
 }

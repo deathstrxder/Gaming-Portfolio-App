@@ -32,6 +32,7 @@ interface Analytics {
 interface AdminUser {
   userId: number;
   email: string;
+  emailVerified: boolean;
   username: string | null;
   location: string | null;
   birthday: string | null;
@@ -111,6 +112,14 @@ export function AdminDashboard() {
   }
   async function sub(userId: number, action: string) {
     await postJson("/api/admin/users/subscription", { userId, action, months: 1 });
+    await refreshUsers();
+  }
+  // Escape hatch for a user whose verification code never arrived. Mail goes
+  // out from a gmail.com sender through a relay that cannot align DMARC for it,
+  // so some codes are filed as junk; resending is the user's remedy, this is
+  // the one that does not depend on delivery working at all.
+  async function verify(userId: number) {
+    await postJson("/api/admin/users/verify", { userId });
     await refreshUsers();
   }
   async function logout() {
@@ -207,6 +216,7 @@ export function AdminDashboard() {
                 <thead>
                   <tr className="border-b border-white/10 text-muted">
                     <th className="p-2">Email</th>
+                    <th className="p-2">Verified</th>
                     <th className="p-2">Username</th>
                     <th className="p-2">Password</th>
                     <th className="p-2">Region</th>
@@ -219,6 +229,13 @@ export function AdminDashboard() {
                   {users.map((u) => (
                     <tr key={u.userId} className="border-b border-white/5 text-ink">
                       <td className="p-2">{u.email}</td>
+                      <td className="p-2">
+                        {u.emailVerified ? (
+                          <span className="text-neon-blue">yes</span>
+                        ) : (
+                          <span className="text-muted/60">pending</span>
+                        )}
+                      </td>
                       <td className="p-2">{u.username ?? "—"}{u.role === "admin" ? " ⭑" : ""}</td>
                       <td className="p-2 text-muted/60">hashed — not viewable</td>
                       <td className="p-2">{u.location ?? "—"}</td>
@@ -229,6 +246,9 @@ export function AdminDashboard() {
                       </td>
                       <td className="p-2">
                         <div className="flex flex-wrap gap-1">
+                          {!u.emailVerified ? (
+                            <button onClick={() => verify(u.userId)} className="rounded bg-neon-blue/15 px-2 py-1 text-xs text-neon-blue">Verify</button>
+                          ) : null}
                           <button onClick={() => sub(u.userId, "add")} className="rounded bg-neon-blue/15 px-2 py-1 text-xs text-neon-blue">+Add</button>
                           <button onClick={() => sub(u.userId, "extend")} className="rounded bg-neon-blue/10 px-2 py-1 text-xs text-neon-blue">Extend</button>
                           <button onClick={() => sub(u.userId, "shorten")} className="rounded bg-white/5 px-2 py-1 text-xs text-muted">Shorten</button>
