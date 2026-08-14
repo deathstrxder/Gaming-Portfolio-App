@@ -9,7 +9,7 @@ import { users } from "./schema";
 import {
   createUnverifiedUser,
   getUserByEmail,
-  verifyCredentials,
+  verifyPassword,
   getProfile,
   setUsername,
   getUserById,
@@ -81,21 +81,31 @@ describe("createUnverifiedUser", () => {
   });
 });
 
-describe("verifyCredentials", () => {
-  it("returns the user for a correct password, null otherwise", async () => {
+describe("verifyPassword", () => {
+  it("accepts the right password and rejects everything else", async () => {
     const db = await freshDb();
     await createUnverifiedUser(db, "a@b.com", "Abc1!x");
-    expect(await verifyCredentials(db, "a@b.com", "Abc1!x")).not.toBeNull();
-    expect(await verifyCredentials(db, "a@b.com", "wrong")).toBeNull();
-    expect(await verifyCredentials(db, "missing@b.com", "Abc1!x")).toBeNull();
+    const user = (await getUserByEmail(db, "a@b.com"))!;
+
+    expect(verifyPassword(user, "Abc1!x")).toBe(true);
+    expect(verifyPassword(user, "wrong")).toBe(false);
+  });
+
+  /**
+   * A Google-created or Google-claimed account has no hash. It must never
+   * authenticate by password, and must not throw either — the login route
+   * reaches this for any account it resolves.
+   */
+  it("rejects an account with no password hash", () => {
+    expect(verifyPassword({ passwordHash: null }, "anything")).toBe(false);
   });
 });
 
 describe("credential guards for passwordless (Google-only) users", () => {
-  it("verifyCredentials returns null when the account has no password", async () => {
+  it("a Google-only account never authenticates by password", async () => {
     const db = await freshDb();
     await db.insert(users).values({ email: "g@x.com", googleId: "google-1", emailVerified: true }).run();
-    expect(await verifyCredentials(db, "g@x.com", "anything")).toBeNull();
+    expect(verifyPassword((await getUserByEmail(db, "g@x.com"))!, "anything")).toBe(false);
   });
 
   it("changePassword refuses when the account has no existing password", async () => {
@@ -170,14 +180,53 @@ describe("resolveGoogleUser", () => {
     expect(u?.passwordHash).toBeNull();
   });
 
-  it("links googleId onto an existing password account with the same email", async () => {
+  /**
+   * The account-takeover fix.
+   *
+   * This case used to link and keep the password, which is what made
+   * pre-registration an attack: register victim@example.com, hold the password,
+   * and wait for the real owner to sign in with Google — they land in an
+   * account whose password you know and keep.
+   *
+   * Google has proved the signer owns the address; whoever set that password
+   * proved nothing. So the signer takes the account and the unproven credential
+   * is destroyed.
+   */
+  it("CLAIMS an unverified password account, destroying its password", async () => {
     const db = await freshDb();
     const created = await createUnverifiedUser(db, "existing@x.com", "Abc1!xy");
     if (!created.ok) throw new Error("setup failed");
-    const res = await resolveGoogleUser(db, { email: "existing@x.com", googleId: "g-link" });
+
+    const res = await resolveGoogleUser(db, { email: "existing@x.com", googleId: "g-claim" });
+
+    expect(res.outcome).toBe("claimed");
+    expect(res.userId).toBe(created.userId);
+
+    const u = await getUserById(db, created.userId);
+    expect(u?.googleId).toBe("g-claim");
+    expect(u?.emailVerified).toBe(true);
+    // Not data loss: a null hash routes the user into the existing Google-only
+    // branch of /api/account/password, which sets an initial password with no
+    // current password required.
+    expect(u?.passwordHash).toBeNull();
+  });
+
+  it("links onto a VERIFIED password account and keeps its password", async () => {
+    const db = await freshDb();
+    const created = await createUnverifiedUser(db, "verified@x.com", "Abc1!xy");
+    if (!created.ok) throw new Error("setup failed");
+    await db.update(users).set({ emailVerified: true }).where(eq(users.id, created.userId)).run();
+    const before = (await getUserById(db, created.userId))?.passwordHash;
+
+    const res = await resolveGoogleUser(db, { email: "verified@x.com", googleId: "g-link" });
+
+    // The legitimate case: a real user who owns the address adds Google to an
+    // account they already proved was theirs. Their password must survive.
     expect(res.outcome).toBe("linked");
     expect(res.userId).toBe(created.userId);
-    expect((await getUserById(db, created.userId))?.googleId).toBe("g-link");
+    const u = await getUserById(db, created.userId);
+    expect(u?.googleId).toBe("g-link");
+    expect(u?.passwordHash).toBe(before);
   });
 
   it("returns the existing user when the googleId is already known", async () => {
@@ -194,7 +243,7 @@ describe("setPassword", () => {
     const db = await freshDb();
     const { userId } = await resolveGoogleUser(db, { email: "g@x.com", googleId: "g-1" });
     await setPassword(db, userId, "Abc1!xyz");
-    expect(await verifyCredentials(db, "g@x.com", "Abc1!xyz")).not.toBeNull();
+    expect(verifyPassword((await getUserById(db, userId))!, "Abc1!xyz")).toBe(true);
   });
 });
 

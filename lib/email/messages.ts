@@ -8,10 +8,10 @@ import type { EmailMessage } from "./index";
  * place. Plain text only: the site sends one kind of mail, and an HTML part
  * would add a second thing to keep in sync for no gain.
  *
- * The spam-folder line is deliberate. Mail is sent from a gmail.com address
- * through a third-party relay, which cannot align DMARC for that domain, so a
- * share of these will be filed as junk. Saying so in the message itself is
- * cheaper than the support conversation it avoids.
+ * The spam-folder warning deliberately lives in the VERIFY SCREEN, not here.
+ * Anyone reading this message has already received it, so advising them to
+ * check their spam folder would be addressed to exactly the people who do not
+ * need it — the ones who need it never see this text at all.
  */
 export function verificationEmail(to: string, code: string): EmailMessage {
   return {

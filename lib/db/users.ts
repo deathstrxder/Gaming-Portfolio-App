@@ -27,8 +27,44 @@ export async function createUserFromGoogle(
   return { userId: u.id };
 }
 
-export type GoogleOutcome = "existing" | "linked" | "created";
+export type GoogleOutcome = "existing" | "linked" | "claimed" | "created";
 
+/**
+ * Hands an unverified account to the Google identity that proved it owns the
+ * address, and destroys the password nobody proved anything with.
+ */
+export async function claimUnverifiedAccount(
+  db: AppDb,
+  userId: number,
+  googleId: string,
+): Promise<void> {
+  await db
+    .update(users)
+    .set({ googleId, emailVerified: true, passwordHash: null })
+    .where(eq(users.id, userId))
+    .run();
+}
+
+/**
+ * Resolves a Google sign-in to an account.
+ *
+ * The email branch is where account takeover used to live. Linking by email
+ * alone meant an attacker could register victim@example.com, keep the password,
+ * and wait: when the real owner signed in with Google they were dropped into
+ * the attacker's account. The attacker never had to steal anything, only to
+ * arrive first.
+ *
+ * The fix turns on who has actually demonstrated ownership of the address:
+ *
+ * - verified account -> link, keep the password. The legitimate case, where
+ *   someone who already proved the address is theirs adds Google to it.
+ * - unverified account -> claim it, and null the password hash.
+ *
+ * Refusing to link instead would have been worse than the bug: users.email is
+ * UNIQUE, so a refusal makes the victim's Google sign-in fail forever on a
+ * duplicate-email insert, converting a takeover into a permanent denial of
+ * service against the same person.
+ */
 export async function resolveGoogleUser(
   db: AppDb,
   params: { email: string; googleId: string },
@@ -38,8 +74,13 @@ export async function resolveGoogleUser(
 
   const byEmail = await getUserByEmail(db, params.email);
   if (byEmail) {
-    await linkGoogleId(db, byEmail.id, params.googleId);
-    return { userId: byEmail.id, outcome: "linked" };
+    if (byEmail.emailVerified) {
+      await linkGoogleId(db, byEmail.id, params.googleId);
+      return { userId: byEmail.id, outcome: "linked" };
+    }
+
+    await claimUnverifiedAccount(db, byEmail.id, params.googleId);
+    return { userId: byEmail.id, outcome: "claimed" };
   }
 
   const created = await createUserFromGoogle(db, params);
@@ -109,11 +150,12 @@ export function verifyPassword(user: { passwordHash: string | null }, password: 
   return bcrypt.compareSync(password, user.passwordHash);
 }
 
-export async function verifyCredentials(db: AppDb, email: string, password: string) {
-  const u = await getUserByEmail(db, email);
-  if (!u) return null;
-  return verifyPassword(u, password) ? u : null;
-}
+// verifyCredentials(db, email, password) used to live here, fusing the lookup
+// and the compare. It was removed rather than left unused: it is a convenience
+// that leaves NOWHERE to consume the per-account rate limit, so any future
+// caller reaching for it would silently reinstate the compute-exhaustion path
+// this branch closed. Resolve the account, consume the bucket, then call
+// verifyPassword — see app/api/auth/login/route.ts.
 
 export async function getProfile(db: AppDb, userId: number) {
   return db.select().from(profiles).where(eq(profiles.userId, userId)).get();
@@ -156,6 +198,16 @@ export async function changePassword(
     .where(eq(users.id, userId))
     .run();
   return { ok: true };
+}
+
+/**
+ * Marks an account verified without a code.
+ *
+ * Admin-only, and the reason it exists is that delivery is expected to fail
+ * sometimes — see app/api/admin/users/verify/route.ts.
+ */
+export async function setEmailVerified(db: AppDb, userId: number): Promise<void> {
+  await db.update(users).set({ emailVerified: true }).where(eq(users.id, userId)).run();
 }
 
 export async function setBirthday(db: AppDb, userId: number, birthday: string): Promise<void> {
