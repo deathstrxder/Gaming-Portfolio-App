@@ -79,6 +79,14 @@ export default defineConfig({
       // Honoured only outside production (see lib/security/rate-limit.ts), so it
       // cannot weaken the deployed app.
       RATE_LIMIT_DISABLED: "1",
+
+      // Test-only, and only ever seen by the server Playwright spawns. Without
+      // it the suite silently depended on a developer's .env.local: iron-session
+      // rejects a short password, so /api/auth/me threw, and the auth panel fell
+      // back to its signup step through an error path rather than a real one.
+      // The specs still passed, which is exactly what made it worth pinning —
+      // a suite that only works on one machine is not a suite.
+      IRON_SESSION_PASSWORD: "e2e-only-not-a-real-secret-32-chars-min",
     },
   },
 });
