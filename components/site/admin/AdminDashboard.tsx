@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { BarList, type Row } from "./Bar";
 import { RangePicker } from "./RangePicker";
 import { TrafficChart, type TimelinePoint } from "./TrafficChart";
-import { RANGE_LABELS, type RangeKey } from "@/lib/analytics/ranges";
+import { DEFAULT_RANGE, RANGE_LABELS, type RangeKey } from "@/lib/analytics/ranges";
 
 type Tab = "traffic" | "analytics" | "users";
 
@@ -69,7 +69,7 @@ function Stat({ label, value }: { label: string; value: number }) {
 export function AdminDashboard() {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("traffic");
-  const [range, setRange] = useState<RangeKey>("week");
+  const [range, setRange] = useState<RangeKey>(DEFAULT_RANGE);
   const [traffic, setTraffic] = useState<Traffic | null>(null);
 
   // Derived, not stored: the panels are stale exactly while the range on screen

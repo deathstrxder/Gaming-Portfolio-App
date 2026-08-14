@@ -32,6 +32,16 @@ export function isRangeKey(value: string): value is RangeKey {
 }
 
 /**
+ * The range the dashboard opens on, and the range the route assumes when
+ * `?range=` is absent.
+ *
+ * One constant rather than a literal in each place: the client seeds its state
+ * from this and the server falls back to it, so two literals would let an absent
+ * range mean one thing in the query and another on screen.
+ */
+export const DEFAULT_RANGE: RangeKey = "day";
+
+/**
  * Each window is an exact multiple of its bucket, so no bucket is ever partial.
  * A partial leading bucket holds fewer hours of traffic than its neighbours and
  * plots as a dip that is an artefact of the axis rather than the data.
