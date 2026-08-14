@@ -54,21 +54,65 @@ export async function setPassword(db: AppDb, userId: number, newPassword: string
     .run();
 }
 
+/**
+ * `resent: true` means the account already existed and was never verified, so
+ * the caller should issue and send a fresh code rather than refuse.
+ *
+ * Without that outcome a failed send is unrecoverable: the account exists, so
+ * the retry returns email_taken, and the client only reaches the verify screen
+ * after a successful signup. Given delivery through a third-party relay from a
+ * gmail.com sender is expected to fail sometimes, that is the normal path
+ * rather than an edge case.
+ */
+export type SignupOutcome =
+  | { ok: true; userId: number; resent: boolean }
+  | { ok: false; error: "email_taken" };
+
 export async function createUnverifiedUser(
   db: AppDb,
   email: string,
   password: string,
-): Promise<{ ok: true; userId: number } | { ok: false; error: "email_taken" }> {
-  if (await getUserByEmail(db, email)) return { ok: false, error: "email_taken" };
+): Promise<SignupOutcome> {
+  const existing = await getUserByEmail(db, email);
+
+  if (existing) {
+    // Only an unverified PASSWORD account may be resumed. A verified account is
+    // someone else's, and a null hash means a Google-owned account (both
+    // createUserFromGoogle and the claim path set emailVerified, so this is
+    // belt-and-braces rather than load-bearing).
+    if (existing.emailVerified || existing.passwordHash === null) {
+      return { ok: false, error: "email_taken" };
+    }
+
+    // Deliberately does NOT update the password. Anyone can post a known
+    // address here, so accepting a new credential would turn this into a
+    // password-reset oracle for accounts the caller does not control.
+    return { ok: true, userId: existing.id, resent: true };
+  }
+
   const passwordHash = bcrypt.hashSync(password, 10);
   const [u] = await db.insert(users).values({ email, passwordHash }).returning().all();
-  return { ok: true, userId: u.id };
+  return { ok: true, userId: u.id, resent: false };
+}
+
+/**
+ * The bcrypt compare, split out from the lookup that precedes it.
+ *
+ * Callers need to interpose between "which account is this?" and "is the
+ * password right?": the login route consumes the per-account rate limit in that
+ * gap, so an exhausted budget short-circuits BEFORE spending ~100ms of a
+ * 4 CPU-hour monthly allowance on a compare. Keeping the two joined inside
+ * verifyCredentials left nowhere to put that check.
+ */
+export function verifyPassword(user: { passwordHash: string | null }, password: string): boolean {
+  if (user.passwordHash === null) return false;
+  return bcrypt.compareSync(password, user.passwordHash);
 }
 
 export async function verifyCredentials(db: AppDb, email: string, password: string) {
   const u = await getUserByEmail(db, email);
-  if (!u || u.passwordHash === null) return null;
-  return bcrypt.compareSync(password, u.passwordHash) ? u : null;
+  if (!u) return null;
+  return verifyPassword(u, password) ? u : null;
 }
 
 export async function getProfile(db: AppDb, userId: number) {

@@ -3,13 +3,15 @@ import { drizzle, type LibSQLDatabase } from "drizzle-orm/libsql";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import * as schema from "./schema";
+import { resolveDbUrl } from "./url";
 
 export type AppDb = LibSQLDatabase<typeof schema>;
 
-// Production points at Turso. With TURSO_DATABASE_URL unset, libSQL falls
-// back to a local file so development and tests work offline, exactly as
-// they did under better-sqlite3.
-const url = process.env.TURSO_DATABASE_URL ?? `file:${process.env.DATABASE_PATH ?? "data/app.db"}`;
+// Production points at Turso. With TURSO_DATABASE_URL unset OR BLANK, libSQL
+// falls back to a local file so development, tests and the E2E harness work
+// offline, exactly as they did under better-sqlite3. See lib/db/url.ts for why
+// blank has to count as unset.
+const url = resolveDbUrl();
 
 function createDb(): AppDb {
   // libSQL creates the .db file for a file: URL but NOT its parent directory,

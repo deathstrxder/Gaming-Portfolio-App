@@ -2,6 +2,7 @@ import { createClient } from "@libsql/client";
 import { drizzle } from "drizzle-orm/libsql";
 import { readFileSync } from "node:fs";
 import { seedAdmin } from "../lib/db/seed";
+import { resolveDbUrl } from "../lib/db/url";
 
 // Load .env.local (tsx doesn't auto-load it) so ADMIN_PASSWORD and the Turso
 // credentials are available.
@@ -18,7 +19,7 @@ try {
 // "type": "module", so tsx transforms this file as CJS and a top-level await
 // is a hard transform error. Matches the entry pattern in build-stats.ts.
 async function main() {
-  const url = process.env.TURSO_DATABASE_URL ?? `file:${process.env.DATABASE_PATH ?? "data/app.db"}`;
+  const url = resolveDbUrl();
   const client = createClient({ url, authToken: process.env.TURSO_AUTH_TOKEN });
   try {
     const res = await seedAdmin(drizzle(client));

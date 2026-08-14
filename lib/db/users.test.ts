@@ -8,6 +8,7 @@ import * as schema from "./schema";
 import { users } from "./schema";
 import {
   createUnverifiedUser,
+  getUserByEmail,
   verifyCredentials,
   getProfile,
   setUsername,
@@ -29,10 +30,52 @@ async function freshDb() {
 }
 
 describe("createUnverifiedUser", () => {
-  it("creates a user with a hashed password and rejects duplicate emails", async () => {
+  it("creates a user with a hashed password", async () => {
     const db = await freshDb();
     const res = await createUnverifiedUser(db, "a@b.com", "Abc1!x");
-    expect(res.ok).toBe(true);
+    expect(res).toMatchObject({ ok: true, resent: false });
+  });
+
+  /**
+   * Changed deliberately: this used to return email_taken for ANY duplicate.
+   *
+   * That made a failed verification email unrecoverable — the account exists,
+   * so the retry was refused, and the client only reaches the verify screen
+   * after a successful signup. Since mail is sent from a gmail.com address
+   * through a relay that cannot align DMARC for it, a code landing in spam is
+   * the expected case, so the dead end would have been reached routinely.
+   */
+  it("resumes an existing UNVERIFIED account so a fresh code can be sent", async () => {
+    const db = await freshDb();
+    const first = await createUnverifiedUser(db, "a@b.com", "Abc1!x");
+    const again = await createUnverifiedUser(db, "a@b.com", "Abc1!x");
+
+    expect(again).toMatchObject({ ok: true, resent: true });
+    expect(again.ok && again.userId).toBe(first.ok && first.userId);
+  });
+
+  it("does not overwrite the password when resuming", async () => {
+    const db = await freshDb();
+    await createUnverifiedUser(db, "a@b.com", "Abc1!x");
+    const before = (await getUserByEmail(db, "a@b.com"))!.passwordHash;
+
+    await createUnverifiedUser(db, "a@b.com", "Different9!");
+
+    // Anyone can post a known address here, so accepting a new credential
+    // would make this a password-reset oracle for accounts the caller does
+    // not control.
+    expect((await getUserByEmail(db, "a@b.com"))!.passwordHash).toBe(before);
+  });
+
+  it("still refuses a duplicate once the account is verified", async () => {
+    const db = await freshDb();
+    const res = await createUnverifiedUser(db, "a@b.com", "Abc1!x");
+    await db
+      .update(users)
+      .set({ emailVerified: true })
+      .where(eq(users.id, res.ok ? res.userId : 0))
+      .run();
+
     const dup = await createUnverifiedUser(db, "a@b.com", "Abc1!x");
     expect(dup).toEqual({ ok: false, error: "email_taken" });
   });

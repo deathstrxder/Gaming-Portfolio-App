@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { changePassword, setPassword, getUserById } from "@/lib/db/users";
 import { isPasswordValid } from "@/lib/auth/password";
 import { getSession } from "@/lib/auth/session";
+import { guard, LIMITS } from "@/lib/security/limits";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,12 @@ export async function POST(request: Request) {
 
   const user = await getUserById(db, session.userId);
   if (!user) return Response.json({ error: "unauthenticated" }, { status: 401 });
+
+  // After the account is known to exist, and above both bcrypt calls below —
+  // this route runs a compare AND a hash, making it the costliest path in the
+  // app after login.
+  const throttled = await guard(LIMITS.pwchangeUser, String(user.id));
+  if (throttled) return throttled;
 
   // Google-only account (no password yet): set an initial password directly.
   if (user.passwordHash === null) {
