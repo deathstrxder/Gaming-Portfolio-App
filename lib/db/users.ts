@@ -65,10 +65,24 @@ export async function createUnverifiedUser(
   return { ok: true, userId: u.id };
 }
 
+/**
+ * The bcrypt compare, split out from the lookup that precedes it.
+ *
+ * Callers need to interpose between "which account is this?" and "is the
+ * password right?": the login route consumes the per-account rate limit in that
+ * gap, so an exhausted budget short-circuits BEFORE spending ~100ms of a
+ * 4 CPU-hour monthly allowance on a compare. Keeping the two joined inside
+ * verifyCredentials left nowhere to put that check.
+ */
+export function verifyPassword(user: { passwordHash: string | null }, password: string): boolean {
+  if (user.passwordHash === null) return false;
+  return bcrypt.compareSync(password, user.passwordHash);
+}
+
 export async function verifyCredentials(db: AppDb, email: string, password: string) {
   const u = await getUserByEmail(db, email);
-  if (!u || u.passwordHash === null) return null;
-  return bcrypt.compareSync(password, u.passwordHash) ? u : null;
+  if (!u) return null;
+  return verifyPassword(u, password) ? u : null;
 }
 
 export async function getProfile(db: AppDb, userId: number) {
