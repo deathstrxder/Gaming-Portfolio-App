@@ -21,6 +21,9 @@ const BASE_URL = `http://localhost:${PORT}`;
  */
 export default defineConfig({
   testDir: "./e2e",
+  // Creates and migrates the throwaway database named in webServer.env below,
+  // so the suite depends on no database file committed to the repository.
+  globalSetup: "./e2e/global-setup.ts",
   timeout: 60_000,
   expect: { timeout: 10_000 },
   fullyParallel: true,
@@ -52,6 +55,30 @@ export default defineConfig({
     // reaches i.ytimg.com nor ships a fixture image to production.
     env: {
       STATS_SNAPSHOT_FILE: path.join(__dirname, "e2e", "fixtures", "stats-snapshot.json"),
+
+      // Keeps the run off the production database.
+      //
+      // `env` MERGES with the parent environment rather than replacing it, so
+      // there is no way to unset an inherited TURSO_DATABASE_URL from here — an
+      // empty string is the only lever available. That works only because
+      // lib/db/url.ts treats blank as unset; a plain `??` would hand the blank
+      // string to createClient and throw at import time.
+      //
+      // Without this, every spec's page load wrote synthetic analytics rows into
+      // the LIVE events table, which the admin dashboard then reported as real
+      // visitors.
+      TURSO_DATABASE_URL: "",
+      DATABASE_PATH: path.join(__dirname, "data", "e2e", "app.db"),
+
+      // The suite drives 24 specs across 4 workers from a single address, and
+      // each page load emits a page_view plus a section_view per section —
+      // several hundred events inside one ten-minute window, against a limit of
+      // 300. Without this the run would start returning 429s partway through and
+      // the failures would read as broken pages rather than as a throttle.
+      //
+      // Honoured only outside production (see lib/security/rate-limit.ts), so it
+      // cannot weaken the deployed app.
+      RATE_LIMIT_DISABLED: "1",
     },
   },
 });
