@@ -9,7 +9,7 @@ import { users } from "./schema";
 import {
   createUnverifiedUser,
   getUserByEmail,
-  verifyCredentials,
+  verifyPassword,
   getProfile,
   setUsername,
   getUserById,
@@ -81,21 +81,31 @@ describe("createUnverifiedUser", () => {
   });
 });
 
-describe("verifyCredentials", () => {
-  it("returns the user for a correct password, null otherwise", async () => {
+describe("verifyPassword", () => {
+  it("accepts the right password and rejects everything else", async () => {
     const db = await freshDb();
     await createUnverifiedUser(db, "a@b.com", "Abc1!x");
-    expect(await verifyCredentials(db, "a@b.com", "Abc1!x")).not.toBeNull();
-    expect(await verifyCredentials(db, "a@b.com", "wrong")).toBeNull();
-    expect(await verifyCredentials(db, "missing@b.com", "Abc1!x")).toBeNull();
+    const user = (await getUserByEmail(db, "a@b.com"))!;
+
+    expect(verifyPassword(user, "Abc1!x")).toBe(true);
+    expect(verifyPassword(user, "wrong")).toBe(false);
+  });
+
+  /**
+   * A Google-created or Google-claimed account has no hash. It must never
+   * authenticate by password, and must not throw either — the login route
+   * reaches this for any account it resolves.
+   */
+  it("rejects an account with no password hash", () => {
+    expect(verifyPassword({ passwordHash: null }, "anything")).toBe(false);
   });
 });
 
 describe("credential guards for passwordless (Google-only) users", () => {
-  it("verifyCredentials returns null when the account has no password", async () => {
+  it("a Google-only account never authenticates by password", async () => {
     const db = await freshDb();
     await db.insert(users).values({ email: "g@x.com", googleId: "google-1", emailVerified: true }).run();
-    expect(await verifyCredentials(db, "g@x.com", "anything")).toBeNull();
+    expect(verifyPassword((await getUserByEmail(db, "g@x.com"))!, "anything")).toBe(false);
   });
 
   it("changePassword refuses when the account has no existing password", async () => {
@@ -233,7 +243,7 @@ describe("setPassword", () => {
     const db = await freshDb();
     const { userId } = await resolveGoogleUser(db, { email: "g@x.com", googleId: "g-1" });
     await setPassword(db, userId, "Abc1!xyz");
-    expect(await verifyCredentials(db, "g@x.com", "Abc1!xyz")).not.toBeNull();
+    expect(verifyPassword((await getUserById(db, userId))!, "Abc1!xyz")).toBe(true);
   });
 });
 

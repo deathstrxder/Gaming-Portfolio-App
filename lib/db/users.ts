@@ -150,11 +150,12 @@ export function verifyPassword(user: { passwordHash: string | null }, password: 
   return bcrypt.compareSync(password, user.passwordHash);
 }
 
-export async function verifyCredentials(db: AppDb, email: string, password: string) {
-  const u = await getUserByEmail(db, email);
-  if (!u) return null;
-  return verifyPassword(u, password) ? u : null;
-}
+// verifyCredentials(db, email, password) used to live here, fusing the lookup
+// and the compare. It was removed rather than left unused: it is a convenience
+// that leaves NOWHERE to consume the per-account rate limit, so any future
+// caller reaching for it would silently reinstate the compute-exhaustion path
+// this branch closed. Resolve the account, consume the bucket, then call
+// verifyPassword — see app/api/auth/login/route.ts.
 
 export async function getProfile(db: AppDb, userId: number) {
   return db.select().from(profiles).where(eq(profiles.userId, userId)).get();
