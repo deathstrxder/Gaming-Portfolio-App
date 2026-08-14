@@ -36,6 +36,13 @@
       "when": 1785356864042,
       "tag": "0004_soft_power_man",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1786722623715,
+      "tag": "0005_violet_william_stryker",
+      "breakpoints": true
     }
   ]
 }

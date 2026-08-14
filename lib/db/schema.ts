@@ -55,3 +55,23 @@ export const events = sqliteTable("events", {
     .notNull()
     .$defaultFn(() => new Date()),
 });
+
+/**
+ * Fixed-window rate-limit counters.
+ *
+ * Raw unix seconds rather than `mode: "timestamp"`: the window boundary is
+ * computed arithmetically and compared to the stored value inside a single
+ * upsert, and routing that through Drizzle's Date mapper would put a
+ * seconds/milliseconds conversion in the middle of it — the same class of bug
+ * lib/db/analytics.ts already carries a warning about.
+ *
+ * One row per key, rewritten in place when its window rolls over, so the table
+ * never grows beyond the number of live keys and needs no reaper. That property
+ * only holds because entity-subject buckets are consumed after the entity is
+ * known to exist; see lib/security/rate-limit.ts.
+ */
+export const rateLimits = sqliteTable("rate_limits", {
+  key: text("key").primaryKey(),
+  windowStart: integer("window_start").notNull(),
+  count: integer("count").notNull(),
+});
