@@ -18,7 +18,7 @@ export interface UAInfo {
  * it consults the limiter.
  */
 const BOT_PATTERN =
-  /(googlebot|bingbot|yandexbot|duckduckbot|baiduspider|applebot|facebookexternalhit|twitterbot|slackbot|linkedinbot|telegrambot|discordbot|whatsapp|ahrefsbot|semrushbot|mj12bot|dotbot|petalbot|bytespider|gptbot|claudebot|ccbot|perplexitybot|crawler|spider|slurp|headless|python-requests|curl\/|wget\/|scrapy|okhttp|go-http-client)/i;
+  /(googlebot|bingbot|yandexbot|duckduckbot|baiduspider|applebot|facebookexternalhit|twitterbot|slackbot|linkedinbot|telegrambot|discordbot|ahrefsbot|semrushbot|mj12bot|dotbot|petalbot|bytespider|gptbot|claudebot|ccbot|perplexitybot|crawler|spider|slurp|headless|python-requests|curl\/|wget\/|scrapy|okhttp|go-http-client)/i;
 
 export function isBot(ua: string | null): boolean {
   if (!ua) return false;

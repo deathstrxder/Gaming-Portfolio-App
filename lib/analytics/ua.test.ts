@@ -48,6 +48,19 @@ describe("isBot", () => {
     expect(isBot(ua)).toBe(false);
   });
 
+  /**
+   * Same trade as CUBOT, found in review. Matching "whatsapp" catches the link
+   * preview fetcher, but Android in-app webviews carry it too, so a portfolio
+   * shared over chat — which is how this one gets shared — would drop the real
+   * visitors who arrived by tapping the link. A preview fetch is one request per
+   * share; those visitors are the audience.
+   */
+  it("does not flag a visitor arriving from a WhatsApp in-app browser", () => {
+    const ua =
+      "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0 Mobile Safari/537.36 WhatsApp/2.23.20.0";
+    expect(isBot(ua)).toBe(false);
+  });
+
   it("treats a missing User-Agent as not-a-bot", () => {
     expect(isBot(null)).toBe(false);
   });
