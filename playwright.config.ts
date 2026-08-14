@@ -24,6 +24,22 @@ export default defineConfig({
   timeout: 60_000,
   expect: { timeout: 10_000 },
   fullyParallel: true,
+  /**
+   * Capped well below the default of half the logical cores (10 here).
+   *
+   * Every spec opens `/`, which loads the full home page and waits out the
+   * intro. Ten of those starting at once against a server that has just been
+   * built saturates the machine, and `page.goto` in beforeEach starts blowing
+   * the 60s test timeout — a failure that looks like a broken page but is only
+   * congestion. The working tree also lives in a OneDrive folder, so a fresh
+   * build hands the sync client thousands of files to chew on at exactly the
+   * moment the run starts.
+   *
+   * Measured on this machine: 10 workers failed 10 of 24 specs on `page.goto`
+   * and took 3.4m; 4 workers passed all 24 in 2.3m. Fewer workers is both
+   * steadier and faster, so there is nothing to trade off.
+   */
+  workers: 4,
   reporter: [["list"]],
   use: {
     baseURL: BASE_URL,
