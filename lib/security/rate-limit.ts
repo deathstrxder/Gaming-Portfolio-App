@@ -71,41 +71,65 @@ export async function consume(
     return { ok: false, retryAfterSec };
   }
 
-  // Read before write. Rejected traffic is billed against reads (500M/month)
-  // rather than writes (10M/month), so an over-limit caller costs essentially
-  // nothing — without this the limiter would be a cheaper way to exhaust the
-  // write quota than the abuse it exists to block.
-  // `.all()[0]` rather than `.get()`: drizzle's libSQL driver runs a raw-SQL
-  // `.get()` result through normalizeRow unconditionally, which throws
-  // "Cannot convert undefined or null to object" when the query matched no
-  // rows — i.e. on the very first request for any key. `.all()` returns an
-  // empty array instead.
-  const [existing] = await db.all<{ window_start: number; count: number }>(
-    sql`SELECT window_start, count FROM rate_limits WHERE key = ${key}`,
-  );
-  if (existing && existing.window_start === windowStart && existing.count >= limit) {
-    memory.set(key, { windowStart, count: existing.count });
-    return { ok: false, retryAfterSec };
+  try {
+    // Read before write. Rejected traffic is billed against reads (500M/month)
+    // rather than writes (10M/month), so an over-limit caller costs essentially
+    // nothing — without this the limiter would be a cheaper way to exhaust the
+    // write quota than the abuse it exists to block.
+    // `.all()[0]` rather than `.get()`: drizzle's libSQL driver runs a raw-SQL
+    // `.get()` result through normalizeRow unconditionally, which throws
+    // "Cannot convert undefined or null to object" when the query matched no
+    // rows — i.e. on the very first request for any key. `.all()` returns an
+    // empty array instead.
+    const [existing] = await db.all<{ window_start: number; count: number }>(
+      sql`SELECT window_start, count FROM rate_limits WHERE key = ${key}`,
+    );
+    if (existing && existing.window_start === windowStart && existing.count >= limit) {
+      memory.set(key, { windowStart, count: existing.count });
+      return { ok: false, retryAfterSec };
+    }
+
+    // Single statement, with the window roll-over folded into the upsert, so no
+    // read-modify-write gap exists. Concurrent invocations are the normal case on
+    // serverless, and a read-then-write counter silently admits over the limit.
+    const [updated] = await db.all<{ count: number }>(
+      sql`INSERT INTO rate_limits (key, window_start, count) VALUES (${key}, ${windowStart}, 1)
+          ON CONFLICT(key) DO UPDATE SET
+            count = CASE WHEN rate_limits.window_start = excluded.window_start
+                         THEN rate_limits.count + 1 ELSE 1 END,
+            window_start = excluded.window_start
+          RETURNING count`,
+    );
+
+    const count = updated?.count ?? 1;
+    memory.set(key, { windowStart, count });
+
+    // A count above the limit here means several invocations cleared the read
+    // simultaneously. Bounded by concurrency rather than by attack volume, and
+    // rejecting is the conservative direction.
+    if (count > limit) return { ok: false, retryAfterSec };
+    return { ok: true, retryAfterSec: 0 };
+  } catch (error) {
+    // FAIL OPEN, LOUDLY.
+    //
+    // Written after this exact path took the live site down. The code querying
+    // rate_limits merged and deployed before migration 0005 created the table,
+    // so every login threw "no such table: rate_limits", the route did not
+    // catch it, and sign-in was unavailable site-wide. The protective layer
+    // became the outage.
+    //
+    // A rate limiter is a guard, not a feature. When the guard cannot run, the
+    // right answer is to let traffic through and shout about it, not to refuse
+    // everyone: briefly unthrottled is a far smaller harm than unreachable.
+    //
+    // The trade is explicit rather than overlooked. Someone able to break the
+    // database could also switch throttling off this way — but anyone with that
+    // access already has strictly better options, so it grants them nothing new.
+    console.error(
+      `[rate limit] check failed for bucket "${bucket}"; allowing the request. ` +
+        `If this repeats, suspect an unapplied migration. ` +
+        `Cause: ${(error as Error).message}`,
+    );
+    return { ok: true, retryAfterSec: 0 };
   }
-
-  // Single statement, with the window roll-over folded into the upsert, so no
-  // read-modify-write gap exists. Concurrent invocations are the normal case on
-  // serverless, and a read-then-write counter silently admits over the limit.
-  const [updated] = await db.all<{ count: number }>(
-    sql`INSERT INTO rate_limits (key, window_start, count) VALUES (${key}, ${windowStart}, 1)
-        ON CONFLICT(key) DO UPDATE SET
-          count = CASE WHEN rate_limits.window_start = excluded.window_start
-                       THEN rate_limits.count + 1 ELSE 1 END,
-          window_start = excluded.window_start
-        RETURNING count`,
-  );
-
-  const count = updated?.count ?? 1;
-  memory.set(key, { windowStart, count });
-
-  // A count above the limit here means several invocations cleared the read
-  // simultaneously. Bounded by concurrency rather than by attack volume, and
-  // rejecting is the conservative direction.
-  if (count > limit) return { ok: false, retryAfterSec };
-  return { ok: true, retryAfterSec: 0 };
 }

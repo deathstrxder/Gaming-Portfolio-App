@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { createClient } from "@libsql/client";
 import { drizzle } from "drizzle-orm/libsql";
 import { migrate } from "drizzle-orm/libsql/migrator";
@@ -89,6 +89,53 @@ describe("consume", () => {
     for (let i = 0; i < 10; i++) {
       expect((await consume(db, "b", "s", 1, 600, { now: 1000, env })).ok).toBe(true);
     }
+  });
+
+  /**
+   * Learned from a real outage.
+   *
+   * Migration 0005 creates rate_limits. The code that queries it merged and
+   * deployed before the migration was applied, so every login hit
+   * "no such table: rate_limits", the route did not catch it, and sign-in was
+   * down site-wide — brought down by the very thing meant to protect it.
+   *
+   * A rate limiter is a protective layer. Taking the whole site offline to
+   * protect it is a worse outcome than being briefly unprotected, so an
+   * infrastructure failure here must ALLOW the request and complain loudly
+   * rather than reject it.
+   */
+  it("fails OPEN and logs when the database is unusable", async () => {
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    const broken = {
+      all: async () => {
+        throw new Error("SQLITE_UNKNOWN: SQLite error: no such table: rate_limits");
+      },
+    } as unknown as AppDb;
+
+    const res = await consume(broken, "b", "s", 1, 600, { now: 1000 });
+
+    expect(res.ok).toBe(true);
+    expect(err).toHaveBeenCalled();
+    expect(err.mock.calls.flat().join(" ")).toMatch(/rate limit/i);
+    err.mockRestore();
+  });
+
+  it("fails open on the write as well as the read", async () => {
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    let call = 0;
+    const flaky = {
+      all: async () => {
+        call += 1;
+        if (call === 1) return []; // read succeeds, no existing row
+        throw new Error("connection reset");
+      },
+    } as unknown as AppDb;
+
+    const res = await consume(flaky, "b", "s", 1, 600, { now: 1000 });
+
+    expect(res.ok).toBe(true);
+    expect(err).toHaveBeenCalled();
+    err.mockRestore();
   });
 
   /**
