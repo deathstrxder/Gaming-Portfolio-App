@@ -43,6 +43,10 @@ export function AuthPanel() {
   const [step, setStep] = useState<Step>("loading");
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  // Distinct from `error`: this reports something that succeeded but changed
+  // the account in a way the user must be told about, so it must not be styled
+  // or worded as a failure.
+  const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const [email, setEmail] = useState("");
@@ -53,7 +57,10 @@ export function AuthPanel() {
   const [remember, setRemember] = useState(false);
 
   const [pendingUserId, setPendingUserId] = useState<number | null>(null);
-  const [shownCode, setShownCode] = useState<string | null>(null);
+  // Matches the server's 60s per-user resend cooldown. Purely cosmetic — the
+  // limiter is the real gate — but without it the button invites a 429.
+  const [resendIn, setResendIn] = useState(0);
+  const [resendNote, setResendNote] = useState<string | null>(null);
   const [code, setCode] = useState("");
   const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState<string | null>(null);
@@ -78,6 +85,14 @@ export function AuthPanel() {
       .catch(() => setStep("signup"));
   }, []);
 
+  // Ticks the resend cooldown down to zero. Mirrors the server's 60s per-user
+  // limit so the button is disabled while a press would only earn a 429.
+  useEffect(() => {
+    if (resendIn <= 0) return;
+    const timer = setTimeout(() => setResendIn((n) => n - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [resendIn]);
+
   useEffect(() => {
     // Deferred to a microtask so replaceState does not run during the commit
     // phase; deliberately fire-and-forget, hence the void.
@@ -85,6 +100,16 @@ export function AuthPanel() {
       const params = new URLSearchParams(window.location.search);
       if (params.get("error") === "oauth") {
         setError("Google sign-in failed. Please try again.");
+        window.history.replaceState({}, "", window.location.pathname);
+      }
+      // Google claimed an account whose email had never been confirmed, which
+      // clears the password that was set on it. Explaining that is not optional:
+      // the common case is a real user whose verification mail went to spam, and
+      // silently destroying their password would look like our bug.
+      if (params.get("claimed") === "1") {
+        setNotice(
+          "Signed in with Google. Because this email had never been confirmed, any password previously set on it has been cleared — you can set a new one from your account page.",
+        );
         window.history.replaceState({}, "", window.location.pathname);
       }
     });
@@ -102,11 +127,32 @@ export function AuthPanel() {
     if (password !== confirm) return fail("Passwords do not match.");
     setBusy(true);
     const { ok, status, data } = await postJson("/api/auth/signup", { email, password });
-    if (!ok) return fail(status === 409 ? "That email is already registered." : "Invalid email or password.");
+    if (!ok) {
+      if (status === 409) return fail("That email is already registered.");
+      if (status === 429) return fail("Too many attempts. Please wait a few minutes and try again.");
+      // The account exists but the mail did not go out. Signing up again
+      // re-sends rather than refusing, so retrying is genuinely the way out.
+      if (status === 503) return fail("We could not send the email just now. Please try again in a moment.");
+      return fail("Invalid email or password.");
+    }
     setPendingUserId(data.userId);
-    setShownCode(data.code);
     setBusy(false);
+    setResendIn(60);
     setStep("verify");
+  }
+
+  async function handleResend() {
+    setError(null);
+    setResendNote(null);
+    setBusy(true);
+    const { ok, status } = await postJson("/api/auth/resend-code", {});
+    setBusy(false);
+    if (!ok) {
+      if (status === 429) return fail("Please wait a moment before requesting another code.");
+      return fail("We could not send another code just now.");
+    }
+    setResendIn(60);
+    setResendNote("Sent. Check your inbox, and your spam folder.");
   }
 
   async function handleVerify(e: React.FormEvent) {
@@ -171,6 +217,12 @@ export function AuthPanel() {
           </p>
         ) : null}
 
+        {notice ? (
+          <p className="mb-4 rounded-md border border-neon-blue/40 bg-neon-blue/10 px-4 py-2 font-body text-sm text-neon-blue">
+            {notice}
+          </p>
+        ) : null}
+
         {step === "loading" ? (
           <p className="text-center font-body text-muted">Loading…</p>
         ) : null}
@@ -218,16 +270,28 @@ export function AuthPanel() {
           <form onSubmit={handleVerify} className="flex flex-col gap-4">
             <h3 className="font-display text-2xl uppercase tracking-[0.15em] text-ink">Verify your email</h3>
             <p className="font-body text-sm text-muted">
-              Enter the 6-digit code. (Email delivery is simulated for this demo — your code is:)
+              We sent a 6-digit code to <span className="text-ink">{email}</span>. It expires in 10 minutes.
             </p>
-            <p className="text-center font-display text-3xl tracking-[0.4em] text-neon-blue text-glow-blue">
-              {shownCode}
+            {/*
+              Said plainly rather than buried, because it is genuinely likely:
+              mail goes out from a gmail.com sender through a third-party relay,
+              which cannot align DMARC for that domain, so a share of these are
+              filed as junk. Telling people up front is cheaper than the support
+              conversation it avoids.
+            */}
+            <p className="font-body text-sm text-muted/70">
+              If it has not arrived, check your spam folder — it often lands there.
             </p>
             {/* The placeholder is six underscores, so it is no use as a name. */}
             <input className={`${inputClass} text-center tracking-[0.4em]`} inputMode="numeric" maxLength={6}
               placeholder="______" aria-label="Verification code" value={code}
               onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} required />
             <Button type="submit" disabled={busy}>{busy ? "Verifying…" : "Verify"}</Button>
+            <button type="button" onClick={handleResend} disabled={busy || resendIn > 0}
+              className="font-body text-sm text-neon-blue underline-offset-4 hover:underline disabled:text-muted/50 disabled:no-underline">
+              {resendIn > 0 ? `Resend code in ${resendIn}s` : "Send a new code"}
+            </button>
+            {resendNote ? <p className="font-body text-sm text-neon-blue">{resendNote}</p> : null}
           </form>
         ) : null}
 
