@@ -48,7 +48,7 @@ export async function GET(request: Request) {
 
   try {
     const email = claims.email.toLowerCase();
-    const { userId } = await resolveGoogleUser(db, { email, googleId: claims.sub });
+    const { userId, outcome } = await resolveGoogleUser(db, { email, googleId: claims.sub });
 
     const profile = await getProfile(db, userId);
     const session = await getSession(loginSessionOptions(true)); // B1: 30-day persistent
@@ -57,7 +57,13 @@ export async function GET(request: Request) {
     session.username = profile?.username;
     await session.save();
 
-    return redirectTo(profile?.username ? "/subscribe" : "/#support");
+    // A claim destroys a password, and the legitimate version of that is not
+    // rare — it is what happens whenever a real user's verification mail went to
+    // spam and they signed in with Google instead. Saying so beats letting them
+    // discover it at the next sign-in.
+    const claimed = outcome === "claimed";
+    if (profile?.username) return redirectTo(claimed ? "/subscribe?claimed=1" : "/subscribe");
+    return redirectTo(claimed ? "/?claimed=1#support" : "/#support");
   } catch {
     return redirectTo("/?error=oauth#support");
   }
