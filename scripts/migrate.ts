@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { runMigrations } from "../lib/db/migrate";
+import { resolveDbUrl } from "../lib/db/url";
 
 // Load .env.local (tsx doesn't auto-load it) so Turso credentials are available.
 try {
@@ -15,7 +16,7 @@ try {
 // "type": "module", so tsx transforms this file as CJS and a top-level await
 // is a hard transform error. Matches the entry pattern in build-stats.ts.
 async function main() {
-  const url = process.env.TURSO_DATABASE_URL ?? `file:${process.env.DATABASE_PATH ?? "data/app.db"}`;
+  const url = resolveDbUrl();
   await runMigrations(url);
   console.log("Migrations applied to", url.replace(/\?.*$/, ""));
 }
