@@ -18,6 +18,16 @@ interface GoogleClaims {
   name?: string;
 }
 
+/**
+ * Google's own error codes are lower-case identifiers (access_denied,
+ * admin_policy_enforced, org_internal, …).
+ *
+ * The value is attacker-supplied — anyone can link to this endpoint with any
+ * query string — and it gets reflected into a redirect, so only this shape is
+ * echoed back. Anything else is reported generically rather than passed through.
+ */
+const GOOGLE_ERROR_CODE = /^[a-z_]{1,40}$/;
+
 export async function GET(request: Request) {
   const jar = await cookies();
   const params = new URL(request.url).searchParams;
@@ -29,6 +39,22 @@ export async function GET(request: Request) {
   // Always clear the one-time cookies, whatever happens next.
   jar.delete("google_oauth_state");
   jar.delete("google_oauth_code_verifier");
+
+  // Google reports a refusal by redirecting here with ?error=<reason> and no
+  // code. Falling through to the generic branch below would discard the only
+  // thing that says WHY — turning "access_denied because the consent screen is
+  // still in Testing mode and this account is not a test user" into an
+  // unfalsifiable "Google sign-in failed. Please try again."
+  const googleError = params.get("error");
+  if (googleError) {
+    console.error(
+      `[google oauth] provider refused the sign-in: ${googleError}. ` +
+        `access_denied usually means the OAuth consent screen is in Testing mode ` +
+        `and this account is not listed as a test user.`,
+    );
+    const safe = GOOGLE_ERROR_CODE.test(googleError) ? googleError : "oauth";
+    return redirectTo(`/?error=${safe}#support`);
+  }
 
   if (!code || !state || !storedState || !codeVerifier || state !== storedState) {
     return redirectTo("/?error=oauth#support");

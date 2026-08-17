@@ -14,6 +14,25 @@ const inputClass =
   "w-full rounded-md border border-white/10 bg-bg/60 px-4 py-3 font-body text-ink " +
   "placeholder:text-muted/60 outline-none transition-colors focus:border-neon-blue focus:box-glow-blue";
 
+/**
+ * Google's refusal reasons, passed through by the callback route.
+ *
+ * Previously every OAuth failure produced the same "please try again", which is
+ * actively misleading for the cases that will never succeed on a retry — a
+ * consent screen still in Testing mode, or an account an administrator blocks.
+ * The full reason is logged server-side; these are the versions a visitor can
+ * act on.
+ */
+const GOOGLE_ERROR_MESSAGES: Record<string, string> = {
+  oauth: "Google sign-in failed. Please try again.",
+  access_denied:
+    "Google sign-in was not completed. If you did not cancel it yourself, this site is not yet approved for public Google sign-in.",
+  admin_policy_enforced:
+    "Your Google account administrator has blocked sign-in to this site.",
+  org_internal: "This Google account is not permitted to sign in to this site.",
+  invalid_client: "Google sign-in is misconfigured on this site. Please use email and password.",
+};
+
 async function postJson(url: string, body: unknown) {
   const res = await fetch(url, {
     method: "POST",
@@ -98,8 +117,9 @@ export function AuthPanel() {
     // phase; deliberately fire-and-forget, hence the void.
     void Promise.resolve().then(() => {
       const params = new URLSearchParams(window.location.search);
-      if (params.get("error") === "oauth") {
-        setError("Google sign-in failed. Please try again.");
+      const oauthError = params.get("error");
+      if (oauthError) {
+        setError(GOOGLE_ERROR_MESSAGES[oauthError] ?? GOOGLE_ERROR_MESSAGES.oauth);
         window.history.replaceState({}, "", window.location.pathname);
       }
       // Google claimed an account whose email had never been confirmed, which
