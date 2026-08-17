@@ -29,6 +29,25 @@ describe("google config", () => {
     expect(p.get("code_challenge_method")).toBe("S256");
   });
 
+  /**
+   * A trailing slash on APP_BASE_URL yields a double slash in the path, and
+   * Google compares redirect URIs as exact strings — so
+   * "https://site.test//api/auth/google/callback" fails against a registered
+   * "https://site.test/api/auth/google/callback" with error 400
+   * redirect_uri_mismatch, and nothing in that message hints that one stray
+   * character is to blame. A trailing slash is trivially easy to paste into a
+   * dashboard field, so the value is normalised rather than trusted.
+   */
+  it("tolerates a trailing slash on APP_BASE_URL", () => {
+    process.env.APP_BASE_URL = "https://site.test/";
+    expect(googleRedirectUri()).toBe("https://site.test/api/auth/google/callback");
+  });
+
+  it("tolerates repeated trailing slashes and surrounding whitespace", () => {
+    process.env.APP_BASE_URL = "  https://site.test//  ";
+    expect(googleRedirectUri()).toBe("https://site.test/api/auth/google/callback");
+  });
+
   it("throws a clear error when a required env var is missing", () => {
     delete process.env.GOOGLE_CLIENT_ID;
     expect(() => getGoogleClient()).toThrow(/GOOGLE_CLIENT_ID/);

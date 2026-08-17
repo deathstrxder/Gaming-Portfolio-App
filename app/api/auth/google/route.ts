@@ -19,9 +19,19 @@ export async function GET() {
   let url: URL;
   try {
     url = getGoogleClient().createAuthorizationURL(state, codeVerifier, GOOGLE_SCOPES);
-  } catch {
+  } catch (error) {
+    console.error(`[google oauth] cannot start sign-in: ${(error as Error).message}`);
     return new Response(null, { status: 302, headers: { Location: "/?error=oauth#support" } });
   }
+
+  // The single most useful line for diagnosing "Error 400: redirect_uri_mismatch".
+  //
+  // Google compares this against the registered URIs byte for byte and reports a
+  // mismatch without ever saying what it received, so the only way to fix one is
+  // to know exactly what was sent. Logging it means the value can be copied
+  // straight from the platform logs into the Google Cloud console, rather than
+  // reconstructed by hand from APP_BASE_URL and hopefully got right.
+  console.log(`[google oauth] redirect_uri sent: ${url.searchParams.get("redirect_uri")}`);
 
   const jar = await cookies();
   jar.set("google_oauth_state", state, TEMP_COOKIE_OPTS);
