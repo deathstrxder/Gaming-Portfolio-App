@@ -8,8 +8,20 @@ function required(name: string): string {
 
 export const GOOGLE_SCOPES = ["openid", "email", "profile"];
 
+/**
+ * The exact string Google compares against the registered redirect URIs.
+ *
+ * Google matches these BYTE FOR BYTE, and reports any difference as a bare
+ * "Error 400: redirect_uri_mismatch" that names nothing. A trailing slash on
+ * APP_BASE_URL — trivially easy to paste into a dashboard field — produces
+ * "https://site//api/auth/google/callback" and fails against a perfectly
+ * correct registration, with no hint that one character is the cause.
+ *
+ * So the base is normalised here rather than trusted to be clean.
+ */
 export function googleRedirectUri(): string {
-  return `${required("APP_BASE_URL")}/api/auth/google/callback`;
+  const base = required("APP_BASE_URL").trim().replace(/\/+$/, "");
+  return `${base}/api/auth/google/callback`;
 }
 
 // Build the client per call (not at module load) so a missing env var throws
