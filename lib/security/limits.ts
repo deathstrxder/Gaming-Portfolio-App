@@ -21,6 +21,12 @@ import { consume } from "./rate-limit";
  */
 export const LIMITS = {
   loginIp: { bucket: "login-ip", limit: 10, windowSec: 600 },
+  // The unified panel has to ask whether an address is registered before it can
+  // decide between the password screen and the signup steps, which makes this
+  // endpoint an account-enumeration oracle by construction rather than by
+  // oversight. The limit is what keeps it from being a *bulk* one: a caller can
+  // confirm a handful of guesses, not harvest a list.
+  lookupIp: { bucket: "lookup-ip", limit: 30, windowSec: 600 },
   loginAccount: { bucket: "login-account", limit: 5, windowSec: 900 },
   signupIp: { bucket: "signup-ip", limit: 5, windowSec: 3600 },
   verifyUser: { bucket: "verify-user", limit: 10, windowSec: 600 },

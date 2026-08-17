@@ -1,14 +1,24 @@
 "use client";
 
-import { PasswordInput } from "@/components/site/PasswordInput";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { PasswordInput } from "@/components/site/PasswordInput";
 import { isPasswordValid } from "@/lib/auth/password";
 import { PasswordChecklist } from "./PasswordChecklist";
 
-type Step = "loading" | "signup" | "login" | "verify" | "username" | "done";
+/**
+ * `identify` is the single entry point: the user gives an address and the panel
+ * works out for itself whether that means signing in or signing up.
+ *
+ * The panel used to open on a "signup" step with a "log in instead" link, which
+ * forced the user to declare an intention before anything could be known — and
+ * made "Continue with Google" mean two different things depending on which step
+ * it was pressed from, while Google reports only one. Asking for the address
+ * first removes the guess entirely.
+ */
+type Step = "loading" | "identify" | "password" | "create" | "verify" | "username" | "done";
 
 const inputClass =
   "w-full rounded-md border border-white/10 bg-bg/60 px-4 py-3 font-body text-ink " +
@@ -32,6 +42,17 @@ const GOOGLE_ERROR_MESSAGES: Record<string, string> = {
   org_internal: "This Google account is not permitted to sign in to this site.",
   invalid_client: "Google sign-in is misconfigured on this site. Please use email and password.",
 };
+
+/**
+ * Only an address can be looked up. The admin signs in with a username rather
+ * than an email (see lib/auth/admin.ts), and there is no account to create from
+ * one, so anything that is not an address skips the lookup and goes straight to
+ * the password screen. That keeps the admin able to sign in AND keeps usernames
+ * out of the enumeration surface.
+ */
+function looksLikeEmail(value: string): boolean {
+  return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value.trim());
+}
 
 async function postJson(url: string, body: unknown) {
   const res = await fetch(url, {
@@ -68,10 +89,16 @@ export function AuthPanel() {
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const [email, setEmail] = useState("");
+  // One field for both paths. It carries the address into signup, and doubles
+  // as the login identifier so the admin's username still works.
+  const [identifier, setIdentifier] = useState("");
+  // Whether the matched account can accept a password at all. False for a
+  // Google-created or Google-claimed account, where offering a password field
+  // would be offering something guaranteed to fail.
+  const [hasPassword, setHasPassword] = useState(true);
+
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
-  const [identifier, setIdentifier] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [remember, setRemember] = useState(false);
 
@@ -98,10 +125,10 @@ export function AuthPanel() {
         } else if (d.user) {
           setStep("username");
         } else {
-          setStep("signup");
+          setStep("identify");
         }
       })
-      .catch(() => setStep("signup"));
+      .catch(() => setStep("identify"));
   }, []);
 
   // Ticks the resend cooldown down to zero. Mirrors the server's 60s per-user
@@ -140,15 +167,73 @@ export function AuthPanel() {
     setBusy(false);
   }
 
-  async function handleSignup(e: React.FormEvent) {
+  /** Back to the address field, without losing what was typed. */
+  function backToIdentify() {
+    setError(null);
+    setPassword("");
+    setConfirm("");
+    setLoginPassword("");
+    setStep("identify");
+  }
+
+  /**
+   * The branch point. One question — "does this address have an account?" —
+   * decides between signing in and signing up, so the user never has to.
+   */
+  async function handleIdentify(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+
+    if (!looksLikeEmail(identifier)) {
+      // An "@" means they meant an address, so a malformed one is a typo worth
+      // naming. Without this check "user@gmail" (no TLD) would be treated as a
+      // username and answered with "incorrect email or password", which sends
+      // someone hunting for a password problem they do not have.
+      if (identifier.includes("@")) {
+        return fail("That does not look like a valid email address.");
+      }
+      // No "@" at all: not an address, so it cannot be a new account. Treat it
+      // as a login identifier — this is how the admin username signs in — and
+      // let the login route decide.
+      setHasPassword(true);
+      setStep("password");
+      return;
+    }
+
+    setBusy(true);
+    const { ok, status, data } = await postJson("/api/auth/lookup", { email: identifier });
+    setBusy(false);
+    if (!ok) {
+      if (status === 429) return fail("Too many attempts. Please wait a few minutes and try again.");
+      return fail("Please enter a valid email address.");
+    }
+
+    if (data.exists) {
+      setHasPassword(Boolean(data.hasPassword));
+      setStep("password");
+    } else {
+      setStep("create");
+    }
+  }
+
+  async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     if (!isPasswordValid(password)) return fail("Password does not meet the requirements.");
     if (password !== confirm) return fail("Passwords do not match.");
     setBusy(true);
-    const { ok, status, data } = await postJson("/api/auth/signup", { email, password });
+    const { ok, status, data } = await postJson("/api/auth/signup", {
+      email: identifier,
+      password,
+    });
     if (!ok) {
-      if (status === 409) return fail("That email is already registered.");
+      // Reachable if an account appeared between the lookup and here, so it
+      // sends the user to the password screen rather than to a dead end.
+      if (status === 409) {
+        setHasPassword(true);
+        setStep("password");
+        return fail("That email is already registered. Enter your password to sign in.");
+      }
       if (status === 429) return fail("Too many attempts. Please wait a few minutes and try again.");
       // The account exists but the mail did not go out. Signing up again
       // re-sends rather than refusing, so retrying is genuinely the way out.
@@ -209,6 +294,7 @@ export function AuthPanel() {
       remember,
     });
     if (!ok) {
+      if (status === 429) return fail("Too many attempts. Please wait a few minutes and try again.");
       return fail(status === 403 ? "Please verify your email first." : "Incorrect email or password.");
     }
     setBusy(false);
@@ -225,7 +311,7 @@ export function AuthPanel() {
     setPassword("");
     setConfirm("");
     setLoginPassword("");
-    setStep("signup");
+    setStep("identify");
   }
 
   return (
@@ -247,11 +333,75 @@ export function AuthPanel() {
           <p className="text-center font-body text-muted">Loading…</p>
         ) : null}
 
-        {step === "signup" ? (
-          <form onSubmit={handleSignup} className="flex flex-col gap-4">
+        {step === "identify" ? (
+          <form onSubmit={handleIdentify} className="flex flex-col gap-4">
+            <h3 className="font-display text-2xl uppercase tracking-[0.15em] text-ink">
+              Sign in or sign up
+            </h3>
+            <p className="font-body text-sm text-muted">
+              Enter your email. We&apos;ll sign you in, or set you up if you&apos;re new.
+            </p>
+            <input className={inputClass} type="text" placeholder="Email" aria-label="Email" value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)} required autoComplete="username" />
+            <Button type="submit" disabled={busy}>{busy ? "Checking…" : "Continue"}</Button>
+            {googleEnabled ? <GoogleAuthOptions /> : null}
+          </form>
+        ) : null}
+
+        {step === "password" ? (
+          <form onSubmit={handleLogin} className="flex flex-col gap-4">
+            <h3 className="font-display text-2xl uppercase tracking-[0.15em] text-ink">Welcome back</h3>
+            <p className="font-body text-sm text-muted">
+              Signing in as <span className="text-ink">{identifier}</span>
+            </p>
+
+            {hasPassword ? (
+              <>
+                <PasswordInput className={inputClass} placeholder="Password" aria-label="Password" value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)} required autoComplete="current-password" />
+                <label className="flex items-center gap-2 font-body text-sm text-muted">
+                  <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
+                  Remember me
+                </label>
+                <Button type="submit" disabled={busy}>{busy ? "Logging in…" : "Log in"}</Button>
+                {googleEnabled ? <GoogleAuthOptions /> : null}
+              </>
+            ) : (
+              /*
+                The account exists but has no password hash — it was created by
+                Google, or claimed by Google after its email was never confirmed.
+                No password the user could type would be accepted, so offering
+                the field would be offering a guaranteed failure.
+              */
+              <>
+                <p className="font-body text-sm text-muted">
+                  This account uses Google sign-in.
+                </p>
+                {googleEnabled ? (
+                  <Button asChild>
+                    <a href="/api/auth/google">Continue with Google</a>
+                  </Button>
+                ) : (
+                  <p className="font-body text-sm text-muted/70">
+                    Google sign-in is unavailable right now. Please try again later.
+                  </p>
+                )}
+              </>
+            )}
+
+            <button type="button" className="font-body text-sm text-muted underline underline-offset-4 hover:text-neon-blue"
+              onClick={backToIdentify}>
+              Use a different email
+            </button>
+          </form>
+        ) : null}
+
+        {step === "create" ? (
+          <form onSubmit={handleCreate} className="flex flex-col gap-4">
             <h3 className="font-display text-2xl uppercase tracking-[0.15em] text-ink">Create account</h3>
-            <input className={inputClass} type="email" placeholder="Email" aria-label="Email" value={email}
-              onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
+            <p className="font-body text-sm text-muted">
+              Creating an account for <span className="text-ink">{identifier}</span>
+            </p>
             <PasswordInput className={inputClass} placeholder="Password" aria-label="Password" value={password}
               onChange={(e) => setPassword(e.target.value)} required autoComplete="new-password" />
             <PasswordChecklist password={password} />
@@ -260,28 +410,8 @@ export function AuthPanel() {
             <Button type="submit" disabled={busy}>{busy ? "Creating…" : "Sign up"}</Button>
             {googleEnabled ? <GoogleAuthOptions /> : null}
             <button type="button" className="font-body text-sm text-muted underline underline-offset-4 hover:text-neon-blue"
-              onClick={() => { setError(null); setStep("login"); }}>
-              Already have an account? Login instead!
-            </button>
-          </form>
-        ) : null}
-
-        {step === "login" ? (
-          <form onSubmit={handleLogin} className="flex flex-col gap-4">
-            <h3 className="font-display text-2xl uppercase tracking-[0.15em] text-ink">Log in</h3>
-            <input className={inputClass} type="text" placeholder="Email" aria-label="Email" value={identifier}
-              onChange={(e) => setIdentifier(e.target.value)} required autoComplete="username" />
-            <PasswordInput className={inputClass} placeholder="Password" aria-label="Password" value={loginPassword}
-              onChange={(e) => setLoginPassword(e.target.value)} required autoComplete="current-password" />
-            <label className="flex items-center gap-2 font-body text-sm text-muted">
-              <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
-              Remember me
-            </label>
-            <Button type="submit" disabled={busy}>{busy ? "Logging in…" : "Log in"}</Button>
-            {googleEnabled ? <GoogleAuthOptions /> : null}
-            <button type="button" className="font-body text-sm text-muted underline underline-offset-4 hover:text-neon-blue"
-              onClick={() => { setError(null); setStep("signup"); }}>
-              Need an account? Sign up instead!
+              onClick={backToIdentify}>
+              Use a different email
             </button>
           </form>
         ) : null}
@@ -290,7 +420,7 @@ export function AuthPanel() {
           <form onSubmit={handleVerify} className="flex flex-col gap-4">
             <h3 className="font-display text-2xl uppercase tracking-[0.15em] text-ink">Verify your email</h3>
             <p className="font-body text-sm text-muted">
-              We sent a 6-digit code to <span className="text-ink">{email}</span>. It expires in 10 minutes.
+              We sent a 6-digit code to <span className="text-ink">{identifier}</span>. It expires in 10 minutes.
             </p>
             {/*
               Said plainly rather than buried, because it is genuinely likely:

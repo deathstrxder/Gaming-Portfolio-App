@@ -48,13 +48,44 @@ const field = (page: Page, name: string) => page.getByLabel(name, { exact: true 
 const toggleFor = (page: Page, name: string) =>
   field(page, name).locator("xpath=..").getByTestId("password-toggle");
 
+/**
+ * Fills the create step. No address here: it is captured on the identify step
+ * before this one is reached, so the create step renders only the two password
+ * fields.
+ */
 async function fillValidSignup(page: Page) {
-  await field(page, "Email").fill(VALID_EMAIL);
   await field(page, "Password").fill(VALID_PASSWORD);
-  // Must match: handleSignup returns on `password !== confirm` before it ever
+  // Must match: handleCreate returns on `password !== confirm` before it ever
   // reaches the request, which would make the positive control below fail for
   // the wrong reason.
   await field(page, "Confirm password").fill(VALID_PASSWORD);
+}
+
+/**
+ * Walks the panel to the step under test.
+ *
+ * The panel now opens on a single "identify" step that asks only for an
+ * address, then branches: a known address goes to the password screen, an
+ * unknown one to the signup fields. Every test below wants one side or the
+ * other, so the lookup is stubbed rather than seeded — these are password-input
+ * tests, and going through a real account would couple them to the database.
+ */
+async function reachStep(page: Page, side: "create" | "password") {
+  await page.route("**/api/auth/lookup", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(
+        side === "create" ? { exists: false, hasPassword: false } : { exists: true, hasPassword: true },
+      ),
+    }),
+  );
+
+  await field(page, "Email").fill(VALID_EMAIL);
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: side === "create" ? "Create account" : "Welcome back" }),
+  ).toBeVisible();
 }
 
 test.beforeEach(async ({ page }) => {
@@ -62,8 +93,10 @@ test.beforeEach(async ({ page }) => {
   await waitForIntro(page);
   await page.locator("#support").scrollIntoViewIfNeeded();
   // AuthPanel opens on a "loading" step until /api/auth/me resolves. With no
-  // session it lands on signup, which is the step every test below starts from.
-  await expect(page.getByRole("heading", { name: "Create account" })).toBeVisible();
+  // session it lands on the single identify step.
+  await expect(page.getByRole("heading", { name: "Sign in or sign up" })).toBeVisible();
+  // Most tests below need the two password fields, which live on the create side.
+  await reachStep(page, "create");
 });
 
 test("reveals and re-hides the typed password", async ({ page }) => {
@@ -318,9 +351,9 @@ test("keeps the toggle inside its own field", async ({ page }) => {
   expect(Math.abs(input.x + input.width - (button.x + button.width))).toBeLessThan(0.5);
 });
 
-test("works the same on the login step", async ({ page }) => {
-  await page.getByRole("button", { name: "Already have an account? Login instead!" }).click();
-  await expect(page.getByRole("heading", { name: "Log in" })).toBeVisible();
+test("works the same on the sign-in step", async ({ page }) => {
+  await page.getByRole("button", { name: "Use a different email" }).click();
+  await reachStep(page, "password");
 
   const input = field(page, "Password");
   await expect(input).toHaveAttribute("autocomplete", "current-password");
@@ -342,18 +375,20 @@ test("works the same on the login step", async ({ page }) => {
  * So the walk fills and submits at each step, exactly as a user would.
  */
 test("names every field on every step", async ({ page }) => {
-  await expect(field(page, "Email")).toBeVisible();
+  // Already on the create side, courtesy of beforeEach.
   await expect(field(page, "Password")).toBeVisible();
   await expect(field(page, "Confirm password")).toBeVisible();
 
-  // The login step's own email field is pinned by nothing else: the login test
-  // above only ever touches its password.
-  await page.getByRole("button", { name: "Already have an account? Login instead!" }).click();
+  // The identify step's address field, and the sign-in step's password field,
+  // are pinned by nothing else.
+  await page.getByRole("button", { name: "Use a different email" }).click();
   await expect(field(page, "Email")).toBeVisible();
+
+  await reachStep(page, "password");
   await expect(field(page, "Password")).toBeVisible();
 
-  await page.getByRole("button", { name: "Need an account? Sign up instead!" }).click();
-  await expect(page.getByRole("heading", { name: "Create account" })).toBeVisible();
+  await page.getByRole("button", { name: "Use a different email" }).click();
+  await reachStep(page, "create");
 
   await page.route("**/api/auth/signup", (route) =>
     route.fulfill({

@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { getGoogleClient } from "@/lib/auth/google";
 import { resolveGoogleUser, getProfile } from "@/lib/db/users";
 import { getSession, loginSessionOptions } from "@/lib/auth/session";
+import { postAuthRedirect } from "@/lib/auth/google-redirect";
 
 export const dynamic = "force-dynamic";
 
@@ -83,13 +84,13 @@ export async function GET(request: Request) {
     session.username = profile?.username;
     await session.save();
 
-    // A claim destroys a password, and the legitimate version of that is not
-    // rare — it is what happens whenever a real user's verification mail went to
-    // spam and they signed in with Google instead. Saying so beats letting them
-    // discover it at the next sign-in.
-    const claimed = outcome === "claimed";
-    if (profile?.username) return redirectTo(claimed ? "/subscribe?claimed=1" : "/subscribe");
-    return redirectTo(claimed ? "/?claimed=1#support" : "/#support");
+    // Where to go, and what to say on arrival, is decided by postAuthRedirect —
+    // a pure function so the rules can be tested without standing up an OAuth
+    // exchange. It covers both notices: a claim (a password was destroyed) and
+    // an already-existing account reached from the signup step.
+    return redirectTo(
+      postAuthRedirect({ hasUsername: Boolean(profile?.username), outcome }),
+    );
   } catch {
     return redirectTo("/?error=oauth#support");
   }
