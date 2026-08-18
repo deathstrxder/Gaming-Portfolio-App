@@ -1,0 +1,148 @@
+import { expect, test, type Page } from "@playwright/test";
+
+/**
+ * The panel asks for an address first and then decides, by itself, whether that
+ * means signing in or signing up.
+ *
+ * That decision is the whole point of the unified panel, and it is browser-level
+ * behaviour: which fields appear, whether a lookup is issued at all, whether a
+ * password field is offered for an account that could never accept one. Unit
+ * tests cover the lookup endpoint's answers; these cover what the panel does
+ * with them.
+ *
+ * The lookup is stubbed rather than seeded. Creating real accounts would need
+ * verification codes, which the console mailer writes to the server's stdout
+ * where no browser can read them — a brittle dependency for a test about
+ * branching.
+ */
+async function waitForIntro(page: Page) {
+  await page.waitForFunction(
+    () => document.documentElement.dataset.introPhase === "done",
+    null,
+    { timeout: 30_000 },
+  );
+}
+
+/**
+ * getByLabel, NOT getByRole("textbox").
+ *
+ * `<input type="password">` has no implicit ARIA role, so a role-based locator
+ * never matches one — which would make every "no password field is shown"
+ * assertion below pass whether or not the field was there. Matching the
+ * accessible name directly is the only form that can actually fail.
+ */
+function field(page: Page, name: string) {
+  return page.getByLabel(name, { exact: true });
+}
+
+/** Stubs the lookup and reports how many times the panel actually called it. */
+async function stubLookup(page: Page, body: { exists: boolean; hasPassword: boolean }) {
+  const calls = { count: 0 };
+  await page.route("**/api/auth/lookup", (route) => {
+    calls.count += 1;
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(body),
+    });
+  });
+  return calls;
+}
+
+test.beforeEach(async ({ page }) => {
+  await page.goto("/");
+  await waitForIntro(page);
+  await page.locator("#support").scrollIntoViewIfNeeded();
+  await expect(page.getByRole("heading", { name: "Sign in or sign up" })).toBeVisible();
+});
+
+test("opens on one entry step, with no password field in sight", async ({ page }) => {
+  await expect(field(page, "Email")).toBeVisible();
+  await expect(field(page, "Password")).toHaveCount(0);
+  await expect(field(page, "Confirm password")).toHaveCount(0);
+});
+
+test("a known address goes to the sign-in step", async ({ page }) => {
+  await stubLookup(page, { exists: true, hasPassword: true });
+
+  await field(page, "Email").fill("known@example.com");
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+
+  await expect(page.getByRole("heading", { name: "Welcome back" })).toBeVisible();
+  await expect(field(page, "Password")).toBeVisible();
+  // Sign-in only: no confirmation field, because nothing is being created.
+  await expect(field(page, "Confirm password")).toHaveCount(0);
+});
+
+test("an unknown address goes to the signup step", async ({ page }) => {
+  await stubLookup(page, { exists: false, hasPassword: false });
+
+  await field(page, "Email").fill("new@example.com");
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+
+  await expect(page.getByRole("heading", { name: "Create account" })).toBeVisible();
+  await expect(field(page, "Password")).toBeVisible();
+  await expect(field(page, "Confirm password")).toBeVisible();
+});
+
+/**
+ * A Google-created or Google-claimed account has no password hash, so no
+ * password the user could type would ever be accepted. Offering the field would
+ * be offering a guaranteed failure.
+ */
+test("an account with no password offers Google instead of a password field", async ({ page }) => {
+  await stubLookup(page, { exists: true, hasPassword: false });
+
+  await field(page, "Email").fill("google-only@example.com");
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+
+  await expect(page.getByRole("heading", { name: "Welcome back" })).toBeVisible();
+  await expect(page.getByText("This account uses Google sign-in.")).toBeVisible();
+  await expect(field(page, "Password")).toHaveCount(0);
+});
+
+/**
+ * The admin signs in with a username rather than an address (lib/auth/admin.ts).
+ * There is no account to create from one, so the panel must skip the lookup
+ * entirely — both to keep that sign-in working and to keep usernames out of the
+ * enumeration surface.
+ */
+test("a non-email identifier skips the lookup and goes straight to sign-in", async ({ page }) => {
+  const calls = await stubLookup(page, { exists: false, hasPassword: false });
+
+  await field(page, "Email").fill("deathstrider");
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+
+  await expect(page.getByRole("heading", { name: "Welcome back" })).toBeVisible();
+  await expect(field(page, "Password")).toBeVisible();
+  expect(calls.count).toBe(0);
+});
+
+/**
+ * "user@gmail" has an @ but no TLD. Treating it as a username would answer a
+ * typo with "incorrect email or password", sending someone hunting for a
+ * password problem they do not have.
+ */
+test("a malformed address is named as such, not treated as a username", async ({ page }) => {
+  const calls = await stubLookup(page, { exists: false, hasPassword: false });
+
+  await field(page, "Email").fill("user@gmail");
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+
+  await expect(page.getByText("That does not look like a valid email address.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Sign in or sign up" })).toBeVisible();
+  expect(calls.count).toBe(0);
+});
+
+test("the address can be corrected without reloading", async ({ page }) => {
+  await stubLookup(page, { exists: true, hasPassword: true });
+
+  await field(page, "Email").fill("typo@example.com");
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Welcome back" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Use a different email" }).click();
+
+  await expect(page.getByRole("heading", { name: "Sign in or sign up" })).toBeVisible();
+  await expect(field(page, "Email")).toHaveValue("typo@example.com");
+});

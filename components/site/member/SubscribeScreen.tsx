@@ -7,23 +7,33 @@ import { Button } from "@/components/ui/button";
 
 export function SubscribeScreen() {
   const router = useRouter();
-  const [claimed, setClaimed] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
 
   /**
-   * The Google callback lands here with ?claimed=1 when it took ownership of an
-   * account whose email had never been confirmed, which clears any password set
-   * on it.
+   * Notices the Google callback hands over in the query string.
    *
-   * The common case is not an attacker being evicted — it is a real user whose
-   * verification email went to spam and who signed in with Google instead.
-   * Destroying their password without a word would look like our bug rather
-   * than a security measure, so this notice is not optional.
+   * `claimed` — sign-in took ownership of an account whose email had never been
+   * confirmed, which clears any password set on it. The common case is not an
+   * attacker being evicted; it is a real user whose verification email went to
+   * spam and who used Google instead, so destroying their password silently
+   * would read as our bug rather than as a security measure.
+   *
+   * `existing` — they pressed Google on the SIGN UP step but already had an
+   * account, so nothing was created. Said out loud because otherwise landing
+   * straight in the member area leaves them unsure which account they are in.
    */
   useEffect(() => {
     void Promise.resolve().then(() => {
       const params = new URLSearchParams(window.location.search);
       if (params.get("claimed") === "1") {
-        setClaimed(true);
+        setNotice(
+          "Signed in with Google. This email had never been confirmed, so any password previously set on it has been cleared — you can set a new one from your account page.",
+        );
+        window.history.replaceState({}, "", window.location.pathname);
+      } else if (params.get("existing") === "1") {
+        setNotice(
+          "You already had an account with this email, so we signed you in instead of creating a new one.",
+        );
         window.history.replaceState({}, "", window.location.pathname);
       }
     });
@@ -31,10 +41,9 @@ export function SubscribeScreen() {
 
   return (
     <MemberChrome backHref="/">
-      {claimed ? (
+      {notice ? (
         <p className="mb-8 max-w-xl rounded-md border border-neon-blue/40 bg-neon-blue/10 px-4 py-3 text-center font-body text-sm text-neon-blue">
-          Signed in with Google. This email had never been confirmed, so any password previously set
-          on it has been cleared — you can set a new one from your account page.
+          {notice}
         </p>
       ) : null}
       <Button
