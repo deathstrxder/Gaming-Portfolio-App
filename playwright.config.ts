@@ -55,7 +55,21 @@ export default defineConfig({
   webServer: {
     command: `npm run build && npm run start -- -p ${PORT}`,
     url: BASE_URL,
-    reuseExistingServer: true,
+    /**
+     * Deliberately false, after it silently invalidated a whole run.
+     *
+     * `true` reuses whatever is already listening on the port WITHOUT
+     * rebuilding. A server left over from an earlier run then serves stale code
+     * to every subsequent run — which cost an afternoon here: three specs
+     * "failed" against a build that predated the feature they tested, while the
+     * feature itself was fine.
+     *
+     * The false-failure is the benign direction. The same mechanism silently
+     * produces false PASSES when a spec is fixed but the server is old, and a
+     * suite that can pass against code you are not running is worse than a slow
+     * one. The rebuild costs about 40 seconds.
+     */
+    reuseExistingServer: false,
     timeout: 300_000,
     // The bundled seed carries no providers, so the clips section would render its
     // empty state and there would be nothing to drive. This points the snapshot
