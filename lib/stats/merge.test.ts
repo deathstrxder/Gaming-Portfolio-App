@@ -42,33 +42,33 @@ describe("composeSnapshot", () => {
     version: 1 as const,
     generatedAt: EARLIER,
     providers: {
-      hypixel: { ok: true, stale: false, fetchedAt: EARLIER, data: { bridge: { title: "Grandmaster", wins: 1847, losses: 612, wlr: 3.02, bestWinstreak: 53 } } },
       youtube: { ok: true, stale: false, fetchedAt: EARLIER, data: { subscribers: 1000, subscribersAreRounded: true, videos: [] } },
     },
   };
 
-  it("keeps the failing provider's previous data stale while writing the other fresh", () => {
+  it("writes a fresh provider through with the new timestamp", () => {
     const next = composeSnapshot(
       previous,
-      {
-        hypixel: { ok: false },
-        youtube: { ok: true, data: { subscribers: 1240, subscribersAreRounded: true, videos: [] } },
-      },
+      { youtube: { ok: true, data: { subscribers: 1240, subscribersAreRounded: true, videos: [] } } },
       NOW,
     );
 
     expect(next.generatedAt).toBe(NOW);
-    expect(next.providers.hypixel).toEqual({ ...previous.providers.hypixel, stale: true });
-    expect(next.providers.hypixel?.fetchedAt).toBe(EARLIER);
     expect(next.providers.youtube?.stale).toBe(false);
     expect(next.providers.youtube?.fetchedAt).toBe(NOW);
     expect(next.providers.youtube?.data?.subscribers).toBe(1240);
   });
 
-  it("advances generatedAt even when a provider is carried forward stale", () => {
-    const next = composeSnapshot(previous, { hypixel: { ok: false }, youtube: { ok: false } }, NOW);
+  /**
+   * The property that matters most: a failed fetch must never destroy good
+   * data. It is carried over with its ORIGINAL fetchedAt so the UI can say
+   * honestly how old it is, while generatedAt still advances.
+   */
+  it("carries a failing provider forward as stale, keeping its original timestamp", () => {
+    const next = composeSnapshot(previous, { youtube: { ok: false } }, NOW);
+
     expect(next.generatedAt).toBe(NOW);
-    expect(next.providers.hypixel?.stale).toBe(true);
-    expect(next.providers.youtube?.stale).toBe(true);
+    expect(next.providers.youtube).toEqual({ ...previous.providers.youtube, stale: true });
+    expect(next.providers.youtube?.fetchedAt).toBe(EARLIER);
   });
 });

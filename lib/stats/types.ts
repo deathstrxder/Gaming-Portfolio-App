@@ -7,25 +7,6 @@ export type ProviderResult<T> = {
   data?: T;
 };
 
-export type BridgeStats = {
-  title: string;
-  wins: number;
-  losses: number;
-  wlr: number;
-  bestWinstreak: number;
-};
-
-export type SkyblockStats = {
-  networth: number;
-  profileName: string;
-};
-
-/** Skyblock is optional on its own — networth computation can fail while Bridge still publishes. */
-export type HypixelData = {
-  bridge: BridgeStats;
-  skyblock?: SkyblockStats;
-};
-
 export type YouTubeVideo = {
   id: string;
   title: string;
@@ -41,11 +22,15 @@ export type YouTubeData = {
   videos: YouTubeVideo[];
 };
 
+/**
+ * A `hypixel` provider lived here until the API application was denied. Old
+ * published snapshots still carry that block; the schema simply drops it, since
+ * zod strips unknown keys by default. Nothing needs to migrate.
+ */
 export type Snapshot = {
   version: 1;
   generatedAt: string;
   providers: {
-    hypixel?: ProviderResult<HypixelData>;
     youtube?: ProviderResult<YouTubeData>;
   };
 };

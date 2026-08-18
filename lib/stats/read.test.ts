@@ -9,6 +9,28 @@ const validRemote = {
   version: 1,
   generatedAt: "2026-07-24T18:00:00.000Z",
   providers: {
+    youtube: {
+      ok: true,
+      stale: false,
+      fetchedAt: "2026-07-24T18:00:00.000Z",
+      data: { subscribers: 1240, subscribersAreRounded: true, videos: [] },
+    },
+  },
+};
+
+/**
+ * What is actually published on the stats-data branch right now.
+ *
+ * The Hypixel provider was removed after its API application was denied, but
+ * the live snapshot keeps its `hypixel` block until the workflow next rewrites
+ * it. If the schema rejected unknown keys, deploying that removal would take
+ * the clips carousel down on the very next fetch — so this pins that the block
+ * is ignored rather than fatal.
+ */
+const remoteWithRetiredProvider = {
+  ...validRemote,
+  providers: {
+    ...validRemote.providers,
     hypixel: {
       ok: true,
       stale: false,
@@ -32,13 +54,22 @@ describe("getLiveStats", () => {
   it("returns the remote snapshot when it is valid", async () => {
     mockFetch(() => new Response(JSON.stringify(validRemote), { status: 200 }));
     const stats = await getLiveStats();
-    expect(stats.providers.hypixel?.data?.bridge.wins).toBe(1847);
+    expect(stats.providers.youtube?.data?.subscribers).toBe(1240);
+  });
+
+  it("still reads a published snapshot that carries the retired hypixel block", async () => {
+    mockFetch(() => new Response(JSON.stringify(remoteWithRetiredProvider), { status: 200 }));
+    const stats = await getLiveStats();
+
+    // The unknown block is dropped, and the provider that still matters survives.
+    expect(stats.providers.youtube?.data?.subscribers).toBe(1240);
+    expect("hypixel" in stats.providers).toBe(false);
   });
 
   it("falls back to the bundled seed on a non-200 response", async () => {
     mockFetch(() => new Response("not found", { status: 404 }));
     const stats = await getLiveStats();
-    expect(stats.providers.hypixel).toBeUndefined();
+    expect(stats.providers.youtube).toBeUndefined();
     expect(stats.version).toBe(1);
   });
 
@@ -48,21 +79,21 @@ describe("getLiveStats", () => {
     });
     const stats = await getLiveStats();
     expect(stats.version).toBe(1);
-    expect(stats.providers.hypixel).toBeUndefined();
+    expect(stats.providers.youtube).toBeUndefined();
   });
 
   it("falls back to the bundled seed when the body is not valid JSON", async () => {
     mockFetch(() => new Response("<!doctype html>", { status: 200 }));
     const stats = await getLiveStats();
     expect(stats.version).toBe(1);
-    expect(stats.providers.hypixel).toBeUndefined();
+    expect(stats.providers.youtube).toBeUndefined();
   });
 
   it("falls back to the bundled seed when the payload fails schema validation", async () => {
     mockFetch(() => new Response(JSON.stringify({ version: 99 }), { status: 200 }));
     const stats = await getLiveStats();
     expect(stats.version).toBe(1);
-    expect(stats.providers.hypixel).toBeUndefined();
+    expect(stats.providers.youtube).toBeUndefined();
   });
 });
 
@@ -89,7 +120,7 @@ describe("getLiveStats with STATS_SNAPSHOT_FILE", () => {
 
     const stats = await getLiveStats();
 
-    expect(stats.providers.hypixel?.data?.bridge.wins).toBe(1847);
+    expect(stats.providers.youtube?.data?.subscribers).toBe(1240);
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
@@ -97,6 +128,6 @@ describe("getLiveStats with STATS_SNAPSHOT_FILE", () => {
     process.env.STATS_SNAPSHOT_FILE = path.join(tmpdir(), "definitely-not-here.json");
     const stats = await getLiveStats();
     expect(stats.version).toBe(1);
-    expect(stats.providers.hypixel).toBeUndefined();
+    expect(stats.providers.youtube).toBeUndefined();
   });
 });

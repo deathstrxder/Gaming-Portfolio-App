@@ -61,22 +61,12 @@ jobs:
 
       - name: Build the snapshot
         env:
-          # HYPIXEL_API_KEY is not passed, and now cannot be: the Hypixel API
-          # application was DENIED, so there is no key to restore. The Minecraft
-          # card is back to its original static bullets and the live badge that
-          # rendered this data has been removed.
-          #
-          # The provider is left in the tree rather than deleted, because it
-          # shares its schema, merge and read code with the YouTube path this
-          # workflow still publishes for the clips carousel — untangling it is a
-          # change to a working feature, for no gain while the key is refused.
-          # Without the key it fails fast at required(), so the snapshot
-          # publishes from YouTube alone. That is now the steady state rather
-          # than a workaround waiting on a fix.
-          #
-          # HYPIXEL_API_KEY: ${{ secrets.HYPIXEL_API_KEY }}
+          # A Hypixel provider ran here too, until the API application was
+          # denied. It has been removed rather than left disabled, so
+          # HYPIXEL_API_KEY and MC_USERNAME are no longer read by anything —
+          # delete them from the repository's secrets and variables when
+          # convenient. YouTube is now the only provider.
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
-          MC_USERNAME: ${{ vars.MC_USERNAME }}
           YOUTUBE_HANDLE: ${{ vars.YOUTUBE_HANDLE }}
         run: npm run stats:build
 
