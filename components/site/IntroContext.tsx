@@ -71,11 +71,30 @@ export function IntroProvider({ children }: { children: React.ReactNode }) {
    */
   const landedOnPanelRef = useRef(false);
 
-  // Never auto-restore scroll (or jump to a #game hash) on load — the intro always
-  // starts at the top of EddieHome. The auth section is the documented exception.
-  useEffect(() => {
-    landedOnPanelRef.current = window.location.hash === AUTH_SECTION_HASH;
+  /**
+   * Never auto-restore scroll (or jump to a #game hash) on load — the intro
+   * always starts at the top of EddieHome. The auth section is the documented
+   * exception, and it skips the opening sequence outright.
+   *
+   * Someone arriving here is part-way through signing in: sent back by Google
+   * to choose a username, or returning to a notice. Playing a five-second brand
+   * animation at them and *then* scrolling down is the site interrupting a task
+   * it started. Jumping straight to `done` means the bar never renders
+   * (IntroBar returns null on that phase) and its sweep never runs.
+   *
+   * A layout effect, not a plain one, so the phase changes before the first
+   * paint — otherwise the intro flashes for a frame. The initial state stays
+   * "loading" so the server and the first client render still agree.
+   */
+  useIsoLayoutEffect(() => {
+    const landed = window.location.hash === AUTH_SECTION_HASH;
+    landedOnPanelRef.current = landed;
     if ("scrollRestoration" in history) history.scrollRestoration = "manual";
+
+    if (landed) {
+      setPhase("done");
+      return;
+    }
     window.scrollTo(0, 0);
   }, []);
 
