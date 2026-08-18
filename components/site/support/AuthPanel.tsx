@@ -54,6 +54,60 @@ function looksLikeEmail(value: string): boolean {
   return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value.trim());
 }
 
+/**
+ * What survives a reload, which the panel's React state does not.
+ *
+ * The panel is a section of the home page, so refreshing anywhere in the flow
+ * drops the user at the hero with everything reset — which reads as "did that
+ * work?" rather than as a reset, and is worst right after a code has been
+ * emailed. Only the address and which side of the branch was reached are kept:
+ * never a password, and never anything the server would not already say.
+ *
+ * sessionStorage rather than localStorage, so it dies with the tab.
+ */
+const RESUME_KEY = "eddie_auth_resume";
+
+interface ResumeState {
+  step: "password" | "create";
+  identifier: string;
+  hasPassword: boolean;
+}
+
+function readResume(): ResumeState | null {
+  try {
+    const raw = window.sessionStorage.getItem(RESUME_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as ResumeState;
+    // Validated rather than trusted: it is client-writable storage, and a
+    // malformed value must not be able to strand the panel on a broken step.
+    if (parsed.step !== "password" && parsed.step !== "create") return null;
+    if (typeof parsed.identifier !== "string" || !parsed.identifier) return null;
+    return { ...parsed, hasPassword: Boolean(parsed.hasPassword) };
+  } catch {
+    return null;
+  }
+}
+
+function writeResume(state: ResumeState | null): void {
+  try {
+    if (state) window.sessionStorage.setItem(RESUME_KEY, JSON.stringify(state));
+    else window.sessionStorage.removeItem(RESUME_KEY);
+  } catch {
+    // Private mode, quota, storage disabled. Resuming is a convenience; losing
+    // it must never break signing in.
+  }
+}
+
+/**
+ * Puts the panel's own section in the URL, so a refresh lands back on it rather
+ * than at the top of the home page.
+ */
+function anchorToPanel(): void {
+  if (window.location.hash !== "#support") {
+    window.history.replaceState({}, "", `${window.location.pathname}#support`);
+  }
+}
+
 async function postJson(url: string, body: unknown) {
   const res = await fetch(url, {
     method: "POST",
@@ -124,8 +178,24 @@ export function AuthPanel() {
           setStep("done");
         } else if (d.user) {
           setStep("username");
+        } else if (d.pendingUserId) {
+          // Part-way through verifying when the page reloaded. The sealed
+          // cookie is the only thing that knew, since React state did not
+          // survive — and a code has already been sent, so starting over would
+          // waste it and the resend cooldown.
+          setPendingUserId(d.pendingUserId);
+          const resumed = readResume();
+          if (resumed) setIdentifier(resumed.identifier);
+          setStep("verify");
         } else {
-          setStep("identify");
+          const resumed = readResume();
+          if (resumed) {
+            setIdentifier(resumed.identifier);
+            setHasPassword(resumed.hasPassword);
+            setStep(resumed.step);
+          } else {
+            setStep("identify");
+          }
         }
       })
       .catch(() => setStep("identify"));
@@ -147,7 +217,9 @@ export function AuthPanel() {
       const oauthError = params.get("error");
       if (oauthError) {
         setError(GOOGLE_ERROR_MESSAGES[oauthError] ?? GOOGLE_ERROR_MESSAGES.oauth);
-        window.history.replaceState({}, "", window.location.pathname);
+        // Keeps the fragment: dropping it would scroll the user to the top of
+        // the home page at the exact moment they are being told something.
+        window.history.replaceState({}, "", window.location.pathname + window.location.hash);
       }
       // Google claimed an account whose email had never been confirmed, which
       // clears the password that was set on it. Explaining that is not optional:
@@ -157,7 +229,9 @@ export function AuthPanel() {
         setNotice(
           "Signed in with Google. Because this email had never been confirmed, any password previously set on it has been cleared — you can set a new one from your account page.",
         );
-        window.history.replaceState({}, "", window.location.pathname);
+        // Keeps the fragment: dropping it would scroll the user to the top of
+        // the home page at the exact moment they are being told something.
+        window.history.replaceState({}, "", window.location.pathname + window.location.hash);
       }
     });
   }, []);
@@ -173,6 +247,7 @@ export function AuthPanel() {
     setPassword("");
     setConfirm("");
     setLoginPassword("");
+    writeResume(null);
     setStep("identify");
   }
 
@@ -197,6 +272,8 @@ export function AuthPanel() {
       // let the login route decide.
       setHasPassword(true);
       setStep("password");
+      writeResume({ step: "password", identifier, hasPassword: true });
+      anchorToPanel();
       return;
     }
 
@@ -209,11 +286,15 @@ export function AuthPanel() {
     }
 
     if (data.exists) {
-      setHasPassword(Boolean(data.hasPassword));
+      const canUsePassword = Boolean(data.hasPassword);
+      setHasPassword(canUsePassword);
       setStep("password");
+      writeResume({ step: "password", identifier, hasPassword: canUsePassword });
     } else {
       setStep("create");
+      writeResume({ step: "create", identifier, hasPassword: false });
     }
+    anchorToPanel();
   }
 
   async function handleCreate(e: React.FormEvent) {
@@ -244,6 +325,10 @@ export function AuthPanel() {
     setBusy(false);
     setResendIn(60);
     setStep("verify");
+    // From here the sealed pending cookie is what resumes a reload, so the
+    // client-side copy is redundant and would only risk disagreeing with it.
+    writeResume(null);
+    anchorToPanel();
   }
 
   async function handleResend() {
@@ -311,6 +396,8 @@ export function AuthPanel() {
     setPassword("");
     setConfirm("");
     setLoginPassword("");
+    setIdentifier("");
+    writeResume(null);
     setStep("identify");
   }
 
@@ -442,15 +529,42 @@ export function AuthPanel() {
               {resendIn > 0 ? `Resend code in ${resendIn}s` : "Send a new code"}
             </button>
             {resendNote ? <p className="font-body text-sm text-neon-blue">{resendNote}</p> : null}
+            {/*
+              The same escape the username step needed, for the same reason.
+              This step is resumed from an httpOnly cookie the client cannot
+              clear, so without a way out someone who abandons here returns to
+              the code screen on every visit until the cookie expires. Logging
+              out clears the pending signup as well as the session.
+            */}
+            <button type="button" onClick={handleLogout}
+              className="font-body text-sm text-muted underline underline-offset-4 hover:text-neon-blue">
+              Cancel and start over
+            </button>
           </form>
         ) : null}
 
         {step === "username" ? (
           <form onSubmit={handleUsername} className="flex flex-col gap-4">
             <h3 className="font-display text-2xl uppercase tracking-[0.15em] text-ink">Choose a username</h3>
+            <p className="font-body text-sm text-muted">
+              One last step — this is the name shown on the site.
+            </p>
             <input className={inputClass} type="text" placeholder="Username" aria-label="Username" value={username}
               onChange={(e) => setUsername(e.target.value)} required autoComplete="off" />
             <Button type="submit" disabled={busy}>{busy ? "Saving…" : "Continue"}</Button>
+            {/*
+              The escape hatch this step used to lack entirely.
+
+              Google sign-in opens a 30-day session BEFORE a username exists, so
+              anyone who stopped here — cancelled a later Google attempt, closed
+              the tab, changed their mind — came back to this screen on every
+              visit with no way off it. The session kept them here and the panel
+              offered only "Continue". Signing out is the way out.
+            */}
+            <button type="button" onClick={handleLogout}
+              className="font-body text-sm text-muted underline underline-offset-4 hover:text-neon-blue">
+              Cancel and sign out
+            </button>
           </form>
         ) : null}
 

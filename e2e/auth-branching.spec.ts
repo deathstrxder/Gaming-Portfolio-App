@@ -134,6 +134,77 @@ test("a malformed address is named as such, not treated as a username", async ({
   expect(calls.count).toBe(0);
 });
 
+/**
+ * Google sign-in opens a 30-day session BEFORE a username exists, so a user who
+ * abandons at that point — by cancelling a later Google attempt, closing the
+ * tab, anything — comes back to a panel that offers only "Choose a username"
+ * and no way out. The session keeps them there on every visit.
+ */
+test("the username step offers a way out of a half-finished account", async ({ page }) => {
+  await page.route("**/api/auth/me", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        user: { userId: 1, role: "user", username: null },
+        googleEnabled: true,
+      }),
+    }),
+  );
+  await page.reload();
+  await waitForIntro(page);
+  await page.locator("#support").scrollIntoViewIfNeeded();
+
+  await expect(page.getByRole("heading", { name: "Choose a username" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Cancel and sign out" })).toBeVisible();
+});
+
+/**
+ * The panel lives in a section of the home page, so a reload drops the user at
+ * the hero with the flow reset — leaving it genuinely unclear whether signing in
+ * had worked. Mid-flow the URL must carry the fragment, so a refresh returns to
+ * the panel rather than the top of the page.
+ */
+test("advancing the flow puts the panel in the URL", async ({ page }) => {
+  await stubLookup(page, { exists: false, hasPassword: false });
+
+  await field(page, "Email").fill("new@example.com");
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Create account" })).toBeVisible();
+
+  expect(page.url()).toContain("#support");
+});
+
+test("a refresh mid-flow resumes where the user was", async ({ page }) => {
+  await stubLookup(page, { exists: false, hasPassword: false });
+
+  await field(page, "Email").fill("new@example.com");
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Create account" })).toBeVisible();
+
+  await page.reload();
+  await waitForIntro(page);
+
+  // Same step, same address — not dumped back to the entry field.
+  await expect(page.getByRole("heading", { name: "Create account" })).toBeVisible();
+  await expect(page.getByText("new@example.com")).toBeVisible();
+});
+
+test("starting over clears the resumed state", async ({ page }) => {
+  await stubLookup(page, { exists: true, hasPassword: true });
+
+  await field(page, "Email").fill("known@example.com");
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Welcome back" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Use a different email" }).click();
+  await page.reload();
+  await waitForIntro(page);
+  await page.locator("#support").scrollIntoViewIfNeeded();
+
+  await expect(page.getByRole("heading", { name: "Sign in or sign up" })).toBeVisible();
+});
+
 test("the address can be corrected without reloading", async ({ page }) => {
   await stubLookup(page, { exists: true, hasPassword: true });
 
