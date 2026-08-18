@@ -34,8 +34,8 @@ const fallback: Snapshot = seedResult.success ? (seedResult.data as Snapshot) : 
  * key. A local path, rather than a fixture served from `public/`, keeps the
  * override server-side and ships nothing to production.
  *
- * This module is imported only by server components (ClipsSection,
- * LiveStatBadge), so the `node:fs` dependency never reaches the client bundle.
+ * This module is imported only by server components (ClipsSection), so the
+ * `node:fs` dependency never reaches the client bundle.
  */
 async function readSnapshotSource(): Promise<unknown> {
   const localPath = process.env.STATS_SNAPSHOT_FILE;
