@@ -160,6 +160,49 @@ test("the username step offers a way out of a half-finished account", async ({ p
 });
 
 /**
+ * The Google callback redirects a brand-new account to /#support so it can pick
+ * a username. The browser honours that fragment — and then the intro sequence
+ * throws it away: IntroContext pins the view to the top when the intro
+ * completes, deliberately, so the page "never autoscrolls to a section".
+ *
+ * The result is a user mid-signup dumped at the hero, having to scroll down and
+ * find the panel again to finish. The same applies to the claimed-account
+ * notice and to OAuth errors, which also land on #support.
+ */
+test("arriving at the panel's section lands ON the panel, not the hero", async ({ page }) => {
+  await page.route("**/api/auth/me", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        user: { userId: 1, role: "user", username: null },
+        googleEnabled: true,
+      }),
+    }),
+  );
+
+  // about:blank first: beforeEach already loaded "/", and going to "/#support"
+  // from there is a same-document fragment change — React never remounts, so
+  // the stub above would never be fetched. Arriving from Google is a real
+  // cross-document navigation, and this models that.
+  await page.goto("about:blank");
+  await page.goto("/#support");
+  await waitForIntro(page);
+
+  await expect(page.getByRole("heading", { name: "Choose a username" })).toBeVisible();
+  await expect(page.locator("#support")).toBeInViewport();
+});
+
+test("a normal visit still starts at the top, intro intact", async ({ page }) => {
+  await page.goto("about:blank");
+  await page.goto("/");
+  await waitForIntro(page);
+
+  // No fragment, so the deliberate scroll-to-top must survive this fix.
+  await expect(page.locator("#support")).not.toBeInViewport();
+});
+
+/**
  * The panel lives in a section of the home page, so a reload drops the user at
  * the hero with the flow reset — leaving it genuinely unclear whether signing in
  * had worked. Mid-flow the URL must carry the fragment, so a refresh returns to
