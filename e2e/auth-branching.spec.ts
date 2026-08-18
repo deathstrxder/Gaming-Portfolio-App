@@ -203,6 +203,53 @@ test("a normal visit still starts at the top, intro intact", async ({ page }) =>
 });
 
 /**
+ * Full motion on purpose.
+ *
+ * The suite emulates reduced motion, which collapses the opening sequence to
+ * roughly half a second — fast enough that "skipped" and "merely quick" look
+ * identical. At full motion it runs for several seconds, so reaching `done`
+ * inside two can only mean the sequence never played.
+ */
+test.describe("returning mid-signup", () => {
+  test.use({ contextOptions: { reducedMotion: "no-preference" } });
+
+  test("skips the opening animation entirely", async ({ page }) => {
+    await page.route("**/api/auth/me", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          user: { userId: 1, role: "user", username: null },
+          googleEnabled: true,
+        }),
+      }),
+    );
+
+    await page.goto("about:blank");
+    await page.goto("/#support");
+
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.dataset.introPhase), {
+        timeout: 2000,
+      })
+      .toBe("done");
+
+    // And it is already at the panel, rather than arriving there after a delay.
+    await expect(page.getByRole("heading", { name: "Choose a username" })).toBeVisible();
+    await expect(page.locator("#support")).toBeInViewport();
+  });
+
+  test("a normal full-motion visit still plays the intro", async ({ page }) => {
+    await page.goto("about:blank");
+    await page.goto("/");
+
+    // Still mid-sequence at the point the skipped one had already finished.
+    await page.waitForTimeout(1000);
+    expect(await page.evaluate(() => document.documentElement.dataset.introPhase)).not.toBe("done");
+  });
+});
+
+/**
  * The panel lives in a section of the home page, so a reload drops the user at
  * the hero with the flow reset — leaving it genuinely unclear whether signing in
  * had worked. Mid-flow the URL must carry the fragment, so a refresh returns to
