@@ -1,7 +1,6 @@
 import Image from "next/image";
 
 import type { Game } from "@/lib/games";
-import { LiveStatBadge } from "@/components/site/LiveStatBadge";
 import { Reveal } from "@/components/site/Reveal";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -57,8 +56,6 @@ export function GameCard({
               </li>
             ))}
           </ul>
-
-          <LiveStatBadge gameId={game.id} />
         </CardContent>
       </Card>
     </Reveal>

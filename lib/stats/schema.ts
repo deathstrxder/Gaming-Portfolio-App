@@ -1,22 +1,5 @@
 import { z } from "zod";
 
-const bridgeSchema = z.object({
-  title: z.string(),
-  wins: z.number(),
-  losses: z.number(),
-  wlr: z.number(),
-  bestWinstreak: z.number(),
-});
-
-const skyblockSchema = z.object({
-  networth: z.number(),
-  profileName: z.string(),
-});
-
-const hypixelDataSchema = z.object({
-  bridge: bridgeSchema,
-  skyblock: skyblockSchema.optional(),
-});
 
 const youtubeVideoSchema = z.object({
   id: z.string(),
@@ -42,11 +25,18 @@ function providerSchema<T extends z.ZodType>(dataSchema: T) {
   });
 }
 
+/**
+ * Note this stays a plain `z.object`, which STRIPS unknown keys rather than
+ * rejecting them. That is what lets the currently published snapshot — which
+ * still contains a `hypixel` block from before the API application was denied —
+ * keep parsing. Making this strict would take the live clips carousel down the
+ * moment it fetched, because the snapshot on the stats-data branch is only
+ * rewritten when the workflow next runs.
+ */
 export const snapshotSchema = z.object({
   version: z.literal(1),
   generatedAt: z.string(),
   providers: z.object({
-    hypixel: providerSchema(hypixelDataSchema).optional(),
     youtube: providerSchema(youtubeDataSchema).optional(),
   }),
 });

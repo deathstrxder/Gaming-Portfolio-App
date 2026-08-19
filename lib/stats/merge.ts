@@ -1,4 +1,4 @@
-import type { HypixelData, ProviderResult, Snapshot, YouTubeData } from "./types";
+import type { ProviderResult, Snapshot, YouTubeData } from "./types";
 
 /**
  * Folds one provider's outcome into the snapshot.
@@ -27,7 +27,6 @@ export function mergeProvider<T>(
 export function composeSnapshot(
   previous: Snapshot,
   outcomes: {
-    hypixel: { ok: true; data: HypixelData } | { ok: false };
     youtube: { ok: true; data: YouTubeData } | { ok: false };
   },
   nowIso: string,
@@ -36,7 +35,6 @@ export function composeSnapshot(
     version: 1,
     generatedAt: nowIso,
     providers: {
-      hypixel: mergeProvider(previous.providers.hypixel, outcomes.hypixel, nowIso),
       youtube: mergeProvider(previous.providers.youtube, outcomes.youtube, nowIso),
     },
   };

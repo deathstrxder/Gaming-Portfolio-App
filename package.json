@@ -40,7 +40,6 @@
     "drizzle-kit": "^0.31.10",
     "eslint": "^9",
     "eslint-config-next": "16.2.10",
-    "skyhelper-networth": "^2.7.5",
     "tailwindcss": "^4",
     "tsx": "^4.23.1",
     "typescript": "^5",

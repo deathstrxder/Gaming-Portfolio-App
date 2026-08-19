@@ -61,21 +61,12 @@ jobs:
 
       - name: Build the snapshot
         env:
-          # HYPIXEL_API_KEY is deliberately not passed yet. The first manual run
-          # wedged on this step with no output, and the only code path that
-          # neither local repro reaches is a valid Hypixel key reaching the
-          # Skyblock networth calculation, which dynamically imports
-          # skyhelper-networth (lib/stats/providers/hypixel.ts:78).
-          #
-          # Withholding the key makes the provider fail fast at required(),
-          # exactly as it does locally, so the snapshot publishes from YouTube
-          # alone while the stall is diagnosed. The badge already renders
-          # nothing for a failed hypixel envelope. Restore this line together
-          # with the fix and a permanent key.
-          #
-          # HYPIXEL_API_KEY: ${{ secrets.HYPIXEL_API_KEY }}
+          # A Hypixel provider ran here too, until the API application was
+          # denied. It has been removed rather than left disabled, so
+          # HYPIXEL_API_KEY and MC_USERNAME are no longer read by anything —
+          # delete them from the repository's secrets and variables when
+          # convenient. YouTube is now the only provider.
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
-          MC_USERNAME: ${{ vars.MC_USERNAME }}
           YOUTUBE_HANDLE: ${{ vars.YOUTUBE_HANDLE }}
         run: npm run stats:build
 

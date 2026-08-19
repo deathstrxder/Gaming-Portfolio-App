@@ -3,9 +3,8 @@ import path from "node:path";
 
 import { snapshotSchema } from "@/lib/stats/schema";
 import { composeSnapshot } from "@/lib/stats/merge";
-import { fetchHypixel } from "@/lib/stats/providers/hypixel";
 import { fetchYouTube } from "@/lib/stats/providers/youtube";
-import type { HypixelData, Snapshot, YouTubeData } from "@/lib/stats/types";
+import type { Snapshot, YouTubeData } from "@/lib/stats/types";
 
 const OUTPUT = path.join(process.cwd(), "data", "stats.json");
 
@@ -61,10 +60,11 @@ async function main() {
   const previous = await readPrevious();
   const nowIso = new Date().toISOString();
 
-  const [hypixelOutcome, youtubeOutcome] = await Promise.all([
-    attempt<HypixelData>("hypixel", () =>
-      fetchHypixel({ apiKey: required("HYPIXEL_API_KEY"), username: required("MC_USERNAME") }),
-    ),
+  // YouTube is the only provider now. A Hypixel one lived alongside it until the
+  // API application was denied; Promise.all and the multi-provider failure check
+  // are kept in shape rather than collapsed, because the composeSnapshot
+  // carry-forward they exist to serve is the same for one provider or three.
+  const [youtubeOutcome] = await Promise.all([
     attempt<YouTubeData>("youtube", () =>
       fetchYouTube({
         apiKey: required("YOUTUBE_API_KEY"),
@@ -76,18 +76,14 @@ async function main() {
     ),
   ]);
 
-  if (!hypixelOutcome.ok && !youtubeOutcome.ok) {
+  if (!youtubeOutcome.ok) {
     // Every provider failed. Writing nothing leaves the last good snapshot in
     // place; exiting clean keeps the scheduled job from going red on a blip.
     console.error("[build-stats] all providers failed; leaving the snapshot untouched");
     return;
   }
 
-  const next: Snapshot = composeSnapshot(
-    previous,
-    { hypixel: hypixelOutcome, youtube: youtubeOutcome },
-    nowIso,
-  );
+  const next: Snapshot = composeSnapshot(previous, { youtube: youtubeOutcome }, nowIso);
 
   const validated = snapshotSchema.safeParse(next);
   if (!validated.success) {

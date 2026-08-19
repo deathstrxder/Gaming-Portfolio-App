@@ -36,7 +36,6 @@ Deployment has not been run end to end yet — the steps below are the intended 
    npm run db:seed
    ```
 
-   `scripts/turso-probe.ts` is available to check foreign-key enforcement and transaction behaviour against the remote database before you rely on it.
 3. Vercel Dashboard → import the repo. It builds with `npm run build`; no `vercel.json` is needed for a stock Next app.
 4. Set the environment variables on the Vercel project:
    - `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` — from step 1.

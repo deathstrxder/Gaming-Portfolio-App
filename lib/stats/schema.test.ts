@@ -6,15 +6,6 @@ const fullSnapshot = {
   version: 1,
   generatedAt: "2026-07-24T18:00:00.000Z",
   providers: {
-    hypixel: {
-      ok: true,
-      stale: false,
-      fetchedAt: "2026-07-24T18:00:00.000Z",
-      data: {
-        skyblock: { networth: 4210000000, profileName: "Mango" },
-        bridge: { title: "Grandmaster", wins: 1847, losses: 612, wlr: 3.02, bestWinstreak: 53 },
-      },
-    },
     youtube: {
       ok: true,
       stale: false,
@@ -41,12 +32,11 @@ describe("snapshotSchema", () => {
     expect(snapshotSchema.safeParse(fullSnapshot).success).toBe(true);
   });
 
-  it("accepts a snapshot where one provider failed and has no data", () => {
+  it("accepts a snapshot where the provider failed and has no data", () => {
     const partial = {
       ...fullSnapshot,
       providers: {
-        ...fullSnapshot.providers,
-        hypixel: { ok: false, stale: true, fetchedAt: "2026-07-23T18:00:00.000Z" },
+        youtube: { ok: false, stale: true, fetchedAt: "2026-07-23T18:00:00.000Z" },
       },
     };
     expect(snapshotSchema.safeParse(partial).success).toBe(true);
@@ -62,10 +52,10 @@ describe("snapshotSchema", () => {
     expect(snapshotSchema.safeParse(bad).success).toBe(false);
   });
 
-  it("rejects a bridge block with a non-numeric wins value", () => {
+  it("rejects a video block with a non-numeric views value", () => {
     const bad = structuredClone(fullSnapshot);
     // @ts-expect-error deliberately invalid for the test
-    bad.providers.hypixel.data.bridge.wins = "lots";
+    bad.providers.youtube.data.videos[0].views = "lots";
     expect(snapshotSchema.safeParse(bad).success).toBe(false);
   });
 
@@ -74,21 +64,33 @@ describe("snapshotSchema", () => {
     expect(result.success).toBe(true);
   });
 
-  it("accepts a hypixel payload with bridge stats but no skyblock block", () => {
-    const bridgeOnly = {
-      version: 1,
-      generatedAt: "2026-07-24T18:00:00.000Z",
+  /**
+   * The snapshot published on the stats-data branch still carries a `hypixel`
+   * block, and will until the workflow next rewrites it. A strict schema would
+   * reject it and take the clips carousel down on the first fetch after this
+   * removal deploys, so the tolerance is deliberate and pinned here rather than
+   * left as an accident of zod's default.
+   */
+  it("ignores the retired hypixel provider instead of rejecting it", () => {
+    const withRetired = {
+      ...fullSnapshot,
       providers: {
+        ...fullSnapshot.providers,
         hypixel: {
           ok: true,
           stale: false,
           fetchedAt: "2026-07-24T18:00:00.000Z",
           data: {
+            skyblock: { networth: 4210000000, profileName: "Mango" },
             bridge: { title: "Grandmaster", wins: 1847, losses: 612, wlr: 3.02, bestWinstreak: 53 },
           },
         },
       },
     };
-    expect(snapshotSchema.safeParse(bridgeOnly).success).toBe(true);
+
+    const result = snapshotSchema.safeParse(withRetired);
+    expect(result.success).toBe(true);
+    expect(result.success && "hypixel" in result.data.providers).toBe(false);
+    expect(result.success && result.data.providers.youtube?.data?.subscribers).toBe(1240);
   });
 });
