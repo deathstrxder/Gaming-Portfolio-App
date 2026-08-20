@@ -18,6 +18,10 @@ describe("ronce entrance contract", () => {
     expect(css).toMatch(/\.ronce\.is-in \.ronce-item[\s\S]*?opacity: 1/);
     expect(css).toContain("640ms cubic-bezier(0.22, 1, 0.36, 1)");
     expect(css).toContain("calc(var(--stagger-i, 0) * 70ms)");
+    // The frame chain: 4 × 225ms edges, first at 100ms, last at 775ms —
+    // together the spec's 900ms draw starting 100ms after the entrance begins.
+    expect(css).toContain("transition: transform 225ms linear 100ms");
+    expect(css).toContain("transition: transform 225ms linear 775ms");
   });
 
   it("forces items visible under prefers-reduced-motion", () => {
@@ -32,13 +36,13 @@ describe("ronce entrance contract", () => {
       /@media \(prefers-reduced-motion: reduce\)\s*\{(?:(?!@media)[\s\S])*?\.ronce-item(?:(?!@media)[\s\S]){0,200}?opacity: 1 !important/,
     );
     expect(css).toMatch(
-      /@media \(prefers-reduced-motion: reduce\)\s*\{(?:(?!@media)[\s\S])*?\.tb-draw(?:(?!@media)[\s\S]){0,200}?stroke-dashoffset: 0 !important/,
+      /@media \(prefers-reduced-motion: reduce\)\s*\{(?:(?!@media)[\s\S])*?\.tb-line(?:(?!@media)[\s\S]){0,200}?transform: none !important/,
     );
   });
 
   it("rescues no-JS visitors through the layout noscript style", () => {
     expect(layout).toContain(".ronce-item{opacity:1!important;transform:none!important}");
-    expect(layout).toContain(".tb-draw{stroke-dashoffset:0!important}");
+    expect(layout).toContain(".tb-line{transform:none!important}");
   });
 
   it("registers the mono font token so font-mono is IBM Plex Mono", () => {

@@ -85,4 +85,19 @@ test.describe("stem resume entrance (full motion)", () => {
       .poll(() => first.evaluate((el) => getComputedStyle(el).opacity), { timeout: 5_000 })
       .toBe("1");
   });
+
+  test("the bottom panel still arrives at maximum scroll", async ({ page }) => {
+    // The geometry this design exists to guard: the LAST panel sits above the
+    // footer, where scroll room runs out. It must still cross the observer's
+    // -12% band at maximum scroll — if the band ever deepens (or the footer
+    // shrinks), content strands invisible for motion users and only this test
+    // notices; the reduced-motion profile passes via the !important override.
+    await page.goto("/");
+    await waitForIntro(page);
+    const last = page.locator("#stem-resume .ronce-item").last();
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    await expect
+      .poll(() => last.evaluate((el) => getComputedStyle(el).opacity), { timeout: 5_000 })
+      .toBe("1");
+  });
 });

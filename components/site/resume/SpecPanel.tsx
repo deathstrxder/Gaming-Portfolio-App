@@ -13,17 +13,15 @@ import type { CSSProperties, ReactNode } from "react";
 export function SpecPanel({
   designator,
   title,
-  className,
   children,
 }: {
   designator: string;
   title: string;
-  className?: string;
   children: ReactNode;
 }) {
   return (
     <article
-      className={`ronce-item relative rounded-lg border border-neon-blue/20 bg-bg-elev p-6 sm:p-8 ${className ?? ""}`}
+      className="ronce-item relative rounded-lg border border-neon-blue/20 bg-bg-elev p-6 sm:p-8"
       style={{ "--stagger-i": 0 } as CSSProperties}
     >
       <header className="flex items-baseline gap-3 border-b border-neon-blue/15 pb-3">

@@ -50,7 +50,7 @@ export default function RootLayout({
         <IntroProvider>{children}</IntroProvider>
         {/* No-JS: the intro can't play, so show EddieHome as-is and drop the bar. */}
         <noscript>
-          <style>{`.intro-bar{display:none!important}.pixel-curtain{display:none!important}[data-intro-phase="loading"] .intro-blink{opacity:1!important;transform:none!important}.reveal,.reveal-slide,.reveal-fade{opacity:1!important;transform:none!important}.ronce-item{opacity:1!important;transform:none!important}.tb-draw{stroke-dashoffset:0!important}`}</style>
+          <style>{`.intro-bar{display:none!important}.pixel-curtain{display:none!important}[data-intro-phase="loading"] .intro-blink{opacity:1!important;transform:none!important}.reveal,.reveal-slide,.reveal-fade{opacity:1!important;transform:none!important}.ronce-item{opacity:1!important;transform:none!important}.tb-line{transform:none!important}`}</style>
         </noscript>
       </body>
     </html>

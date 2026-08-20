@@ -560,15 +560,66 @@ html {
   transition-delay: calc(var(--stagger-i, 0) * 70ms);
 }
 
-/* The title block's frame draws itself in like a pen plot: an SVG rect with
-   pathLength=1 so dasharray/dashoffset work in normalized units. */
-.ronce .tb-draw {
-  stroke-dasharray: 1;
-  stroke-dashoffset: 1;
+/* The title block's frame draws itself in like a pen plot: four hairline
+   lines tracing the perimeter clockwise from the top-left, each edge a
+   transform-only sweep. The chain starts 100ms after the entrance begins and
+   spans 900ms — 4 × 225ms at delays 100/325/550/775ms.
+
+   Not an SVG stroke on purpose: the earlier pathLength/stroke-dashoffset
+   version rendered as fragmented ~397px dashes with open corners, because
+   Chromium ignores pathLength when vector-effect: non-scaling-stroke is set.
+   CSS transforms have no such trap and stay 1px crisp at every viewport. */
+.tb-line {
+  position: absolute;
+  pointer-events: none;
+  background: rgba(34, 211, 238, 0.4);
 }
-.ronce.is-in .tb-draw {
-  stroke-dashoffset: 0;
-  transition: stroke-dashoffset 900ms cubic-bezier(0.22, 1, 0.36, 1) 100ms;
+.tb-line-top {
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  transform: scaleX(0);
+  transform-origin: left;
+}
+.tb-line-right {
+  top: 0;
+  right: 0;
+  width: 1px;
+  height: 100%;
+  transform: scaleY(0);
+  transform-origin: top;
+}
+.tb-line-bottom {
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 1px;
+  transform: scaleX(0);
+  transform-origin: right;
+}
+.tb-line-left {
+  bottom: 0;
+  left: 0;
+  width: 1px;
+  height: 100%;
+  transform: scaleY(0);
+  transform-origin: bottom;
+}
+.ronce.is-in .tb-line {
+  transform: none;
+}
+.ronce.is-in .tb-line-top {
+  transition: transform 225ms linear 100ms;
+}
+.ronce.is-in .tb-line-right {
+  transition: transform 225ms linear 325ms;
+}
+.ronce.is-in .tb-line-bottom {
+  transition: transform 225ms linear 550ms;
+}
+.ronce.is-in .tb-line-left {
+  transition: transform 225ms linear 775ms;
 }
 
 /* Opaque graph-paper ground for the datasheet: covers the fixed neon washes
@@ -591,9 +642,9 @@ html {
     transform: none !important;
     transition: none !important;
   }
-  .ronce .tb-draw,
-  .ronce.is-in .tb-draw {
-    stroke-dashoffset: 0 !important;
+  .tb-line,
+  .ronce.is-in .tb-line {
+    transform: none !important;
     transition: none !important;
   }
 }

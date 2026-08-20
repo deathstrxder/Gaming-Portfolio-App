@@ -42,8 +42,11 @@ export function RevealOnce({
     }
 
     const io = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
+      (entries) => {
+        // .some, not entries[0]: a batched callback (fast fling) can deliver an
+        // older not-intersecting record first, and a one-shot that reads only
+        // the first record would skip its fire until the next crossing.
+        if (entries.some((entry) => entry.isIntersecting)) {
           setInView(true);
           io.disconnect();
         }

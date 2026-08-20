@@ -30,38 +30,24 @@ function Fiducial({ className }: { className: string }) {
 }
 
 /**
- * The signature element: an engineering drawing's title block. The frame is an
- * SVG rect that draws itself in (`.tb-draw`, globals.css — 900ms, starting
- * 100ms after the block lands) when the enclosing RevealOnce fires; the
- * fiducials and the cell strip ride a second stagger step (--stagger-i: 3 →
- * 210ms) so the pen plot leads and the data follows. The cells carry the
- * document metadata a real title block would — name/role, drawing number,
- * revision, date — plus the two links this section offers (the PDF itself and
- * email). No other links exist on purpose: the PDF lists none, and the
- * section invents nothing.
+ * The signature element: an engineering drawing's title block. The frame is
+ * four hairline lines that trace the perimeter clockwise (`.tb-line`,
+ * globals.css — a 900ms chain starting 100ms after the entrance begins) when
+ * the enclosing RevealOnce fires; the fiducials and the cell strip ride a
+ * second stagger step (--stagger-i: 3 → 210ms) so the pen plot leads and the
+ * data follows. The cells carry the document metadata a real title block
+ * would — name/role, drawing number, revision, date — plus the two links this
+ * section offers (the PDF itself and email). No other links exist on purpose:
+ * the PDF lists none, and the section invents nothing.
  */
 export function TitleBlock() {
+  const [emailLocal, emailDomain] = RESUME_META.email.split("@");
   return (
     <div className="ronce-item relative" style={{ "--stagger-i": 0 } as CSSProperties}>
-      <svg
-        viewBox="0 0 100 100"
-        preserveAspectRatio="none"
-        aria-hidden
-        className="pointer-events-none absolute inset-0 h-full w-full"
-      >
-        <rect
-          x="0.25"
-          y="0.5"
-          width="99.5"
-          height="99"
-          fill="none"
-          stroke="rgba(34, 211, 238, 0.4)"
-          strokeWidth="1"
-          vectorEffect="non-scaling-stroke"
-          pathLength={1}
-          className="tb-draw"
-        />
-      </svg>
+      <span aria-hidden className="tb-line tb-line-top" />
+      <span aria-hidden className="tb-line tb-line-right" />
+      <span aria-hidden className="tb-line tb-line-bottom" />
+      <span aria-hidden className="tb-line tb-line-left" />
 
       {/* Second stagger step: fiducials + cells arrive at 210ms, after the
           frame has started drawing. `relative` keeps the fiducials anchored to
@@ -86,7 +72,11 @@ export function TitleBlock() {
               href={`mailto:${RESUME_META.email}`}
               className="underline decoration-neon-blue/40 underline-offset-4 transition-colors hover:text-neon-blue"
             >
-              {RESUME_META.email}
+              {/* <wbr> after the @: at narrow cells the address breaks as
+                  "local@" / "domain" instead of mid-token (break-words is the
+                  fallback for widths where even that is not enough). */}
+              {emailLocal}@<wbr />
+              {emailDomain}
             </a>
           </Cell>
           <Cell label="File">
