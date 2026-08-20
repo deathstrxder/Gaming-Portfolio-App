@@ -9,7 +9,9 @@ function Cell({ label, children }: { label: string; children: ReactNode }) {
       <span className="font-mono text-[0.65rem] uppercase tracking-[0.25em] text-muted">
         {label}
       </span>
-      <span className="font-mono text-sm text-ink">{children}</span>
+      {/* break-words: the email is one unbreakable token wider than a half-width
+          cell at phone sizes; without this it runs under the neighboring cell. */}
+      <span className="break-words font-mono text-sm text-ink">{children}</span>
     </div>
   );
 }
