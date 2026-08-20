@@ -26,7 +26,7 @@ const plexMono = IBM_Plex_Mono({
 export const metadata: Metadata = {
   title: "Eddie Zeng — Amateur Gamer",
   description:
-    "The gaming portfolio of Eddie Zeng: most-played games, lifetime stats, and a timeline of his favorite games picked up since 2013.",
+    "The gaming portfolio of Eddie Zeng: most-played games, lifetime stats, a timeline of his favorite games picked up since 2013 — and his STEM resume.",
 };
 
 export default function RootLayout({

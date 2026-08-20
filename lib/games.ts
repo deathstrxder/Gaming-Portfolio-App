@@ -125,7 +125,7 @@ export const SECTION_GROUPS: { id: string; games: Game[] }[] = [
   },
 ];
 
-/** The home page's five scroll sections, in order — shared by the nav bar and the
+/** The home page's scroll sections, in order — shared by the nav bar and the
  *  per-section headers so their numbers and titles never drift apart. */
 export const NAV_SECTIONS = [
   { id: "most-played", label: "Most Played Games" },
@@ -135,6 +135,7 @@ export const NAV_SECTIONS = [
   { id: "timeline", label: "Timeline" },
   { id: "clips", label: "Latest Clips" },
   { id: "support", label: "Support Me" },
+  { id: "stem-resume", label: "STEM Resume" },
 ] as const;
 
 export const STATS: { big: string; small: string }[] = [

@@ -9,6 +9,7 @@ const SECTION_LABELS = [
   "Timeline",
   "Latest Clips",
   "Support Me",
+  "STEM Resume",
 ];
 
 /**
