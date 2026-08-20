@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Orbitron, Rajdhani } from "next/font/google";
+import { IBM_Plex_Mono, Orbitron, Rajdhani } from "next/font/google";
 import "./globals.css";
 
 import { IntroProvider } from "@/components/site/IntroContext";
@@ -17,6 +17,12 @@ const rajdhani = Rajdhani({
   variable: "--font-rajdhani",
 });
 
+const plexMono = IBM_Plex_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500"],
+  variable: "--font-plex-mono",
+});
+
 export const metadata: Metadata = {
   title: "Eddie Zeng — Amateur Gamer",
   description:
@@ -32,7 +38,7 @@ export default function RootLayout({
     <html
       lang="en"
       data-intro-phase="loading"
-      className={`${orbitron.variable} ${rajdhani.variable} h-full antialiased`}
+      className={`${orbitron.variable} ${rajdhani.variable} ${plexMono.variable} h-full antialiased`}
     >
       <body className="min-h-full" suppressHydrationWarning>
         {/* Decorative diagonal neon streaks behind the non-home sections — pure-CSS,
@@ -44,7 +50,7 @@ export default function RootLayout({
         <IntroProvider>{children}</IntroProvider>
         {/* No-JS: the intro can't play, so show EddieHome as-is and drop the bar. */}
         <noscript>
-          <style>{`.intro-bar{display:none!important}.pixel-curtain{display:none!important}[data-intro-phase="loading"] .intro-blink{opacity:1!important;transform:none!important}.reveal,.reveal-slide,.reveal-fade{opacity:1!important;transform:none!important}`}</style>
+          <style>{`.intro-bar{display:none!important}.pixel-curtain{display:none!important}[data-intro-phase="loading"] .intro-blink{opacity:1!important;transform:none!important}.reveal,.reveal-slide,.reveal-fade{opacity:1!important;transform:none!important}.ronce-item{opacity:1!important;transform:none!important}.tb-draw{stroke-dashoffset:0!important}`}</style>
         </noscript>
       </body>
     </html>

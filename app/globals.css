@@ -10,6 +10,7 @@
 
   --font-display: var(--font-orbitron);
   --font-body: var(--font-rajdhani);
+  --font-mono: var(--font-plex-mono);
 }
 
 html {
@@ -524,6 +525,75 @@ html {
   .reveal-fade {
     opacity: 1 !important;
     transform: none !important;
+    transition: none !important;
+  }
+}
+
+/* ============================================================
+   One-shot staggered entrance for the STEM resume section (.ronce*).
+
+   Deliberately NOT the bidirectional .reveal family: this section is the new
+   bottom of the page — exactly where a band-observer that keeps firing causes
+   the feedback jitter documented in Reveal.tsx — and the Apple-style grammar
+   it was designed to is "arrive once, stay". RevealOnce.tsx adds `.is-in` on
+   first intersection and disconnects its observer, so no further crossing can
+   ever re-trigger or reverse the motion.
+
+   Items hide themselves (not their observed ancestor: .ronce-root never
+   transforms, same invariant as .reveal-root) and rise 24px over 640ms with a
+   70ms-per-item stagger driven by --stagger-i, set inline by the components
+   that render lists. The transition lives on the .is-in state so the initial
+   server-rendered frame carries no transition at all. */
+.ronce-root {
+  display: grid;
+}
+.ronce-item {
+  opacity: 0;
+  transform: translate3d(0, 24px, 0);
+}
+.ronce.is-in .ronce-item {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 640ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 640ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: calc(var(--stagger-i, 0) * 70ms);
+}
+
+/* The title block's frame draws itself in like a pen plot: an SVG rect with
+   pathLength=1 so dasharray/dashoffset work in normalized units. */
+.ronce .tb-draw {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+}
+.ronce.is-in .tb-draw {
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset 900ms cubic-bezier(0.22, 1, 0.36, 1) 100ms;
+}
+
+/* Opaque graph-paper ground for the datasheet: covers the fixed neon washes
+   (body::before), the site grid (body::after), and the section streaks — all
+   of which sit at negative z-index — so the section reads as a different
+   document, not another neon panel. Cell size matches the site grid (46px). */
+.blueprint {
+  background-color: var(--color-bg);
+  background-image:
+    linear-gradient(to right, rgba(34, 211, 238, 0.045) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(34, 211, 238, 0.045) 1px, transparent 1px);
+  background-size: 46px 46px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Content is never hidden behind motion: everything rests in its final state. */
+  .ronce-item,
+  .ronce.is-in .ronce-item {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+  .ronce .tb-draw,
+  .ronce.is-in .tb-draw {
+    stroke-dashoffset: 0 !important;
     transition: none !important;
   }
 }
