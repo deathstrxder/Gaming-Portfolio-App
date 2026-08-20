@@ -566,9 +566,15 @@ html {
    spans 900ms — 4 × 225ms at delays 100/325/550/775ms.
 
    Not an SVG stroke on purpose: the earlier pathLength/stroke-dashoffset
-   version rendered as fragmented ~397px dashes with open corners, because
-   Chromium ignores pathLength when vector-effect: non-scaling-stroke is set.
-   CSS transforms have no such trap and stay 1px crisp at every viewport. */
+   version rendered fragmented — measured as ~397px painted segments with open
+   corners (397 ≈ the rect's user-space perimeter leaking into the dash
+   computation) — because Chromium does not honor pathLength when
+   vector-effect: non-scaling-stroke is set. CSS transforms have no such trap
+   and stay 1px crisp at every viewport.
+
+   The vertical lines are inset 1px top and bottom so the corner pixels are
+   painted exactly once — overlapping translucent lines would double-composite
+   the corners ~60% brighter than the edges. */
 .tb-line {
   position: absolute;
   pointer-events: none;
@@ -583,10 +589,10 @@ html {
   transform-origin: left;
 }
 .tb-line-right {
-  top: 0;
+  top: 1px;
   right: 0;
   width: 1px;
-  height: 100%;
+  height: calc(100% - 2px);
   transform: scaleY(0);
   transform-origin: top;
 }
@@ -599,10 +605,10 @@ html {
   transform-origin: right;
 }
 .tb-line-left {
-  bottom: 0;
+  bottom: 1px;
   left: 0;
   width: 1px;
-  height: 100%;
+  height: calc(100% - 2px);
   transform: scaleY(0);
   transform-origin: bottom;
 }
