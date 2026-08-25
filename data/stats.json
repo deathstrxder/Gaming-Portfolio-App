@@ -1,11 +1,11 @@
 {
   "version": 1,
-  "generatedAt": "2026-08-25T06:40:34.662Z",
+  "generatedAt": "2026-08-25T12:41:05.579Z",
   "providers": {
     "youtube": {
       "ok": true,
       "stale": false,
-      "fetchedAt": "2026-08-25T06:40:34.662Z",
+      "fetchedAt": "2026-08-25T12:41:05.579Z",
       "data": {
         "subscribers": 15,
         "subscribersAreRounded": false,
