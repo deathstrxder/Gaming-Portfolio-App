@@ -426,7 +426,7 @@ export function AuthPanel() {
               Sign in or sign up
             </h3>
             <p className="font-body text-sm text-muted">
-              Enter your email
+              Enter your email or username
             </p>
             <input className={inputClass} type="text" placeholder="Email" aria-label="Email" value={identifier}
               onChange={(e) => setIdentifier(e.target.value)} required autoComplete="username" />
