@@ -1,11 +1,11 @@
 {
   "version": 1,
-  "generatedAt": "2026-11-05T23:15:05.587Z",
+  "generatedAt": "2026-11-06T05:00:09.994Z",
   "providers": {
     "youtube": {
       "ok": true,
       "stale": false,
-      "fetchedAt": "2026-11-05T23:15:05.587Z",
+      "fetchedAt": "2026-11-06T05:00:09.994Z",
       "data": {
         "subscribers": 15,
         "subscribersAreRounded": false,
@@ -21,7 +21,7 @@
             "id": "NMUD4Qcgi_A",
             "title": "50 Winstreak in Hypixel Bridge Speedrun | 1h 57m 34s | WR",
             "thumbnail": "https://i.ytimg.com/vi/NMUD4Qcgi_A/sddefault.jpg",
-            "views": 190,
+            "views": 191,
             "publishedAt": "2021-12-27T03:14:59Z"
           }
         ]
